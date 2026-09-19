@@ -461,6 +461,31 @@ Não começar uma fase antes da anterior estar funcionando de verdade.
 
 ---
 
+## Fluxo de trabalho
+
+Uma fase por vez, na ordem do roteiro. Nunca começar a seguinte por iniciativa própria.
+
+Ciclo obrigatório de cada fase:
+
+1. Implementar
+2. Commit, em Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`)
+3. Informar ao desenvolvedor o que testar, com passos e resultado esperado
+4. Aguardar confirmação antes de seguir
+
+Fase grande demais para um commit só: dividir em partes testáveis e aplicar o mesmo ciclo em cada parte. Problema reportado vira correção com novo commit antes de prosseguir.
+
+Antes de começar cada fase, reler a seção deste documento que trata dela — em especial a de graduação, que tem dois cortes de idade diferentes.
+
+Se algo a implementar contrariar este documento, ou se o documento for ambíguo, parar e perguntar ao desenvolvedor. Nunca decidir sozinho o que o documento já define.
+
+Questão de segurança se trata na hora em que aparece, nunca no fim do turno.
+
+Segredos moram em `.env.local`, nunca em arquivo versionado, e o `.gitignore` cobre `.env*`. O Prisma lê `.env.local` por caminho explícito em `prisma.config.ts` — não trocar por `dotenv/config`.
+
+Nenhuma chave secreta recebe o prefixo `NEXT_PUBLIC_`, que a inlina no bundle do navegador. Só a chave publishable pode ir para o cliente.
+
+---
+
 ## Casos de teste críticos
 
 O risco não é o app não funcionar. É funcionar **errado de um jeito que passa despercebido**.
