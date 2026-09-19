@@ -483,8 +483,23 @@ Ciclo obrigatório de cada fase:
 2. Commit, em Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`)
 3. Informar ao desenvolvedor o que testar, com passos e resultado esperado
 4. Aguardar confirmação antes de seguir
+5. Confirmada a fase, entregar em **seção própria** um prompt pronto para colar, que abra a fase seguinte em outra sessão
 
 Fase grande demais para um commit só: dividir em partes testáveis e aplicar o mesmo ciclo em cada parte. Problema reportado vira correção com novo commit antes de prosseguir.
+
+### O prompt de passagem
+
+Existe porque a sessão seguinte começa sem nada do que foi conversado nesta. O que não estiver escrito nele ou no repositório está perdido — e o prejuízo não é refazer trabalho, é refazer diferente, contrariando decisão já tomada.
+
+Escrito para quem chega do zero, nunca "continue de onde paramos". Contém:
+
+- Em que fase o projeto está e qual é a próxima, com o commit em que a anterior terminou
+- O escopo da fase, conforme o roteiro, e o critério de pronto
+- As seções deste documento que precisam ser relidas antes de começar
+- O que já existe e vai ser usado — módulos, componentes, convenções — para não ser reimplementado
+- As decisões em aberto e as armadilhas conhecidas da fase
+
+Vai em bloco de código, para ser copiado inteiro sem edição.
 
 Antes de começar cada fase, reler a seção deste documento que trata dela — em especial a de graduação, que tem dois cortes de idade diferentes.
 
