@@ -458,6 +458,22 @@ A ficha impressa segue apenas com a marca do projeto. Acrescentar a segunda ali 
 
 ---
 
+## PWA
+
+O app será instalável na tela inicial do Android como PWA. **Não haverá APK nem publicação em loja** — o ícone na tela inicial é o que os usuários querem quando pedem "um aplicativo", sem o custo de build Android, assinatura e revisão de loja.
+
+**Isso entra depois da fase 6, nunca antes.** Service worker durante o desenvolvimento cacheia versão antiga e produz bug fantasma, caro de diagnosticar em projeto solo.
+
+Quando for implementado:
+
+- `manifest.json` com nome "Engenho Cidadão", nome curto "Engenho", tema `#16130F`, fundo `#F5F3EF`, `display: standalone`, ícones 192 e 512 mais *maskable*, a partir de `public/logo-projeto.png`
+- Service worker registrado **somente em produção**
+- Estratégia **network-first para tudo**, com cache apenas como último recurso. O app não funciona offline por decisão de escopo, e dado de aluno desatualizado em cache é pior que erro de rede — o professor abriria a chamada e veria a turma de duas semanas atrás sem desconfiar
+- **Nunca cachear dado de aluno, documento ou foto**
+- Cache versionado, com limpeza dos antigos na ativação
+
+---
+
 ## Roteiro — implementar uma fase por vez
 
 Não começar uma fase antes da anterior estar funcionando de verdade.
