@@ -5,7 +5,13 @@
 // chega sem documento em mãos, e formulário rígido produz cadastro não feito ou
 // dado inventado. Quem cobra o que falta é o indicador de completude, não o
 // botão de salvar.
-import { Graduacao, Modalidade, ResponsavelTipo, Sexo } from "@prisma/client";
+import {
+  Graduacao,
+  Modalidade,
+  ResponsavelTipo,
+  Sexo,
+  TipoSanguineo,
+} from "@prisma/client";
 import { z } from "zod";
 
 import { diaEhFuturo, ehDiaValido, hojeNoProjeto, idadeEm } from "@/lib/data";
@@ -176,6 +182,15 @@ export const esquemaAluno = z
 
     peso: decimal(10, 250, "Peso fora do plausível (10 a 250 kg)."),
     altura: decimal(0.5, 2.5, "Altura em metros, entre 0,50 e 2,50."),
+
+    // Saúde. Texto livre de propósito: "alergia a dipirona e a amendoim, a mãe
+    // leva a bombinha na mochila" é a forma real como a informação chega, e uma
+    // lista fechada obrigaria a pessoa a escolher a opção errada ou a não
+    // preencher. Aqui o valor está em registrar, não em tabular.
+    tipoSanguineo: opcional(z.enum(TipoSanguineo)),
+    alergias: texto(500),
+    problemasSaude: texto(500),
+    medicamentosContinuos: texto(500),
   })
   .superRefine((dados, ctx) => {
     // Responsável legal é referência, não cópia. Em PAI e MAE o nome sai de
@@ -274,6 +289,10 @@ export const CAMPOS_ALUNO = [
   "serie",
   "peso",
   "altura",
+  "tipoSanguineo",
+  "alergias",
+  "problemasSaude",
+  "medicamentosContinuos",
 ] as const;
 
 export function camposDoForm(dados: FormData): Record<string, unknown> {

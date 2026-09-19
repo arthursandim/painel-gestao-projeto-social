@@ -1,5 +1,5 @@
 import { StatusAluno } from "@prisma/client";
-import { Pencil } from "lucide-react";
+import { HeartPulse, Pencil } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -24,6 +24,7 @@ import { descreverGraduacao, ROTULO_ESCALA, escalaDaGraduacao } from "@/lib/grad
 import { podeEscreverAluno } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
 import { responsavelDoAluno } from "@/lib/responsavel";
+import { ROTULO_TIPO_SANGUINEO, temDadosDeSaude } from "@/lib/saude";
 import { ehAlunoCompleto, selectAlunoPara } from "@/lib/selecaoAluno";
 
 export const metadata: Metadata = { title: "Aluno — Engenho Cidadão" };
@@ -188,9 +189,49 @@ export default async function AlunoPage({
         {completo ? (
           <Dado rotulo="Naturalidade" valor={completo.naturalidade} />
         ) : null}
-        <Dado rotulo="Peso" valor={aluno.peso ? `${aluno.peso} kg` : null} />
-        <Dado rotulo="Altura" valor={aluno.altura ? `${aluno.altura} m` : null} />
       </Bloco>
+
+      {/* Medidas e saúde, logo depois da identificação. O cartão fica
+          destacado só quando há o que mostrar: um painel de emergência
+          sempre presente e quase sempre vazio ensina a ignorá-lo, e aí ele
+          falha justamente no dia em que estiver preenchido. */}
+      <Card className={temDadosDeSaude(aluno) ? "border-destructive/40" : ""}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            {temDadosDeSaude(aluno) ? (
+              <HeartPulse className="text-destructive size-4" />
+            ) : null}
+            Medidas e saúde
+          </CardTitle>
+          <CardDescription>
+            Visível para todos os papéis, inclusive professor — numa emergência
+            é ele quem está no tatame.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+            <Dado rotulo="Peso" valor={aluno.peso ? `${aluno.peso} kg` : null} />
+            <Dado
+              rotulo="Altura"
+              valor={aluno.altura ? `${aluno.altura} m` : null}
+            />
+            <Dado
+              rotulo="Tipo sanguíneo"
+              valor={
+                aluno.tipoSanguineo
+                  ? ROTULO_TIPO_SANGUINEO[aluno.tipoSanguineo]
+                  : null
+              }
+            />
+            <Dado rotulo="Alergias" valor={aluno.alergias} />
+            <Dado rotulo="Problemas de saúde" valor={aluno.problemasSaude} />
+            <Dado
+              rotulo="Medicamentos de uso contínuo"
+              valor={aluno.medicamentosContinuos}
+            />
+          </dl>
+        </CardContent>
+      </Card>
 
       <Bloco
         titulo={menor ? "Família e responsável legal" : "Filiação"}

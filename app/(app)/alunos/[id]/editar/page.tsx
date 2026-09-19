@@ -86,6 +86,10 @@ export default async function EditarAlunoPage({
     serie: texto(aluno.serie),
     peso: texto(aluno.peso),
     altura: texto(aluno.altura),
+    tipoSanguineo: texto(aluno.tipoSanguineo),
+    alergias: texto(aluno.alergias),
+    problemasSaude: texto(aluno.problemasSaude),
+    medicamentosContinuos: texto(aluno.medicamentosContinuos),
   };
 
   return (

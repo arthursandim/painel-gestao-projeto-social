@@ -72,6 +72,20 @@ enum ResponsavelTipo {
   OUTRO
 }
 
+// Domínio fechado e imutável — os oito tipos do sistema ABO/Rh não mudam, que
+// é a condição que o CLAUDE.md põe para um enum valer a pena em vez de tabela
+// de domínio. Nulo significa "não informado".
+enum TipoSanguineo {
+  A_POSITIVO
+  A_NEGATIVO
+  B_POSITIVO
+  B_NEGATIVO
+  AB_POSITIVO
+  AB_NEGATIVO
+  O_POSITIVO
+  O_NEGATIVO
+}
+
 enum TipoDocumento {
   FICHA_MENOR
   FICHA_ADULTO
@@ -218,6 +232,19 @@ model Aluno {
 
   peso   Decimal? @db.Decimal(5, 2)
   altura Decimal? @db.Decimal(4, 2)
+
+  // Saúde — categoria especial de dado pessoal na LGPD (art. 5º, II).
+  //
+  // Visível também para o PROFESSOR, ao contrário de telefone, endereço e
+  // documento. É decisão deliberada, não esquecimento: quem está no tatame
+  // quando a criança passa mal é o professor, e saber que ela é epiléptica ou
+  // usa bombinha muda a conduta nos primeiros minutos. A base legal é a
+  // proteção da vida (art. 11, II, "f"), e a minimização é atendida pelo fato
+  // de o acesso exigir login de alguém do projeto — não é cadastro aberto.
+  tipoSanguineo         TipoSanguineo?
+  alergias              String?
+  problemasSaude        String?
+  medicamentosContinuos String?
 
   // Caminho no bucket privado. Uma foto vigente, substituível, sem histórico —
   // fora da tabela de documentos, que é a trilha legal auditável.

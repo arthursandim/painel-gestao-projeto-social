@@ -32,6 +32,19 @@ const SELECAO_REDUZIDA = {
   status: true,
   turmaId: true,
   turma: { select: { id: true, codigo: true, nome: true } },
+
+  // Saúde. Únicos campos de categoria especial da LGPD que a visão reduzida
+  // entrega, e é exceção consciente à regra de default-deny deste arquivo.
+  //
+  // O critério não é "é sensível?", é "quem precisa agir sobre isso?". Telefone
+  // e endereço o professor não precisa: quem liga para a família é inscrições.
+  // Alergia e epilepsia ele precisa, e precisa nos primeiros minutos, com o
+  // aluno no chão e ninguém de inscrições por perto. Esconder aqui não protege
+  // ninguém — só atrasa quem poderia ajudar.
+  tipoSanguineo: true,
+  alergias: true,
+  problemasSaude: true,
+  medicamentosContinuos: true,
 } as const satisfies Prisma.AlunoSelect;
 
 const SELECAO_COMPLETA = {

@@ -10,6 +10,7 @@ import type { EstadoAluno } from "./acoes";
 import { avisosDoAluno, IDADE_MAIORIDADE } from "@/lib/avisosAluno";
 import { ehDiaValido, idadeEm } from "@/lib/data";
 import { CAMPOS_ALUNO, OPCOES_UF } from "@/lib/esquemaAluno";
+import { ROTULO_TIPO_SANGUINEO, TIPOS_SANGUINEOS } from "@/lib/saude";
 import { mascaraTelefone } from "@/lib/validacoes";
 import {
   DESCRICAO_ESCALA,
@@ -303,6 +304,93 @@ export function FormularioAluno({
         </Campo>
       </Secao>
 
+      {/* ------------------------------------------- medidas e saúde */}
+      {/* Logo depois da identificação, e não no fim do formulário: é a
+          informação que alguém vai procurar com pressa. */}
+      <Secao
+        titulo="Medidas e saúde"
+        descricao="O que o professor precisa saber com o aluno no tatame. Diferente do resto da ficha, estes campos aparecem também para quem só tem o papel de professor — numa emergência é ele quem está presente."
+      >
+        <Campo nome="peso" rotulo="Peso (kg)">
+          <Input
+            id="peso"
+            name="peso"
+            inputMode="decimal"
+            defaultValue={valores.peso}
+            placeholder="34,5"
+            className="h-11"
+          />
+        </Campo>
+
+        <Campo nome="altura" rotulo="Altura (m)">
+          <Input
+            id="altura"
+            name="altura"
+            inputMode="decimal"
+            defaultValue={valores.altura}
+            placeholder="1,42"
+            className="h-11"
+          />
+        </Campo>
+
+        <Campo nome="tipoSanguineo" rotulo="Tipo sanguíneo">
+          <Select
+            id="tipoSanguineo"
+            name="tipoSanguineo"
+            defaultValue={valores.tipoSanguineo}
+          >
+            <option value="">Não informado</option>
+            {TIPOS_SANGUINEOS.map((t) => (
+              <option key={t} value={t}>
+                {ROTULO_TIPO_SANGUINEO[t]}
+              </option>
+            ))}
+          </Select>
+        </Campo>
+
+        <Campo
+          nome="alergias"
+          rotulo="Alergias"
+          dica="Remédio, alimento, picada. Escreva como a família contou."
+        >
+          <Textarea
+            id="alergias"
+            name="alergias"
+            defaultValue={valores.alergias}
+            maxLength={500}
+            placeholder="Dipirona, amendoim…"
+          />
+        </Campo>
+
+        <Campo
+          nome="problemasSaude"
+          rotulo="Problemas de saúde"
+          dica="Asma, epilepsia, diabetes, lesão antiga que limita o treino."
+        >
+          <Textarea
+            id="problemasSaude"
+            name="problemasSaude"
+            defaultValue={valores.problemasSaude}
+            maxLength={500}
+          />
+        </Campo>
+
+        <Campo
+          nome="medicamentosContinuos"
+          rotulo="Medicamentos de uso contínuo"
+          dica="Inclua onde o remédio fica, se ele vem junto para o treino."
+          largo
+        >
+          <Textarea
+            id="medicamentosContinuos"
+            name="medicamentosContinuos"
+            defaultValue={valores.medicamentosContinuos}
+            maxLength={500}
+            placeholder="Bombinha de salbutamol, fica na mochila."
+          />
+        </Campo>
+      </Secao>
+
       {/* --------------------------------------------- turma e graduação */}
       <Secao
         titulo="Turma e graduação"
@@ -407,29 +495,6 @@ export function FormularioAluno({
             type="date"
             defaultValue={valores.graduacaoData}
             max={hojeIso}
-            className="h-11"
-          />
-        </Campo>
-
-        {/* Peso e altura ficam aqui, e não numa seção própria: quem atualiza a
-            faixa é quem acabou de pesar e medir o aluno, na mesma conversa. */}
-        <Campo nome="peso" rotulo="Peso (kg)">
-          <Input
-            id="peso"
-            name="peso"
-            inputMode="decimal"
-            defaultValue={valores.peso}
-            placeholder="34,5"
-            className="h-11"
-          />
-        </Campo>
-        <Campo nome="altura" rotulo="Altura (m)">
-          <Input
-            id="altura"
-            name="altura"
-            inputMode="decimal"
-            defaultValue={valores.altura}
-            placeholder="1,42"
             className="h-11"
           />
         </Campo>

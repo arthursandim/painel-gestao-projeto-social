@@ -96,6 +96,30 @@ checa(
   campos([Papel.PROFESSOR, Papel.INSCRICOES]).includes("telefoneResponsavel"),
 );
 
+// Saúde é a única exceção ao default-deny deste arquivo, e é exceção nos dois
+// sentidos: não pode sumir para o professor (ele é quem socorre) nem vazar para
+// quem não tem papel nenhum. As duas asserções existem porque as duas falhas
+// são silenciosas — a tela não muda de jeito visível em nenhuma delas.
+const CAMPOS_DE_SAUDE = [
+  "tipoSanguineo",
+  "alergias",
+  "problemasSaude",
+  "medicamentosContinuos",
+];
+
+for (const campo of CAMPOS_DE_SAUDE) {
+  checa(`professor recebe "${campo}"`, doProfessor.includes(campo));
+  checa(`inscrições recebe "${campo}"`, deInscricoes.includes(campo));
+  // As duas listas não podem afirmar o contrário uma da outra. Sem esta
+  // asserção, alguém que acrescentasse "alergias" aos vedados criaria um
+  // arquivo que se contradiz, e só uma das duas regras valeria — a que o
+  // código consultasse primeiro.
+  checa(
+    `"${campo}" não aparece na lista de vedados`,
+    !(CAMPOS_VEDADOS_AO_PROFESSOR as readonly string[]).includes(campo),
+  );
+}
+
 checa("professor não vê documentos", !podeVerDocumentos([Papel.PROFESSOR]));
 checa("inscrições vê documentos", podeVerDocumentos([Papel.INSCRICOES]));
 checa("admin vê documentos", podeVerDocumentos([Papel.ADMIN]));
