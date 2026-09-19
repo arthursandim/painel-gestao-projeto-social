@@ -13,6 +13,7 @@
 import { Graduacao, ResponsavelTipo } from "@prisma/client";
 
 import { avisosDoAluno } from "../lib/avisosAluno";
+import { interpretarRespostaViaCep, mascaraCep } from "../lib/cep";
 import { dataParaDia, diaParaData, idadeEm } from "../lib/data";
 import { conferirEscala } from "../lib/esquemaAluno";
 import {
@@ -460,6 +461,93 @@ checa(
   "colar um número com +55 e pontos ainda funciona",
   mascaraTelefone("96.99123.4567") === "(96) 99123-4567",
 );
+
+console.log("\nResposta da ViaCEP");
+
+// A ViaCEP responde 200 mesmo para CEP inexistente, sinalizando no corpo.
+// Quem confiar no status HTTP preenche o endereço com quatro strings vazias e
+// não percebe — daí este bloco existir sem tocar na rede.
+// Corpo copiado de uma resposta real de 68900-060, campos e tudo.
+const encontrado = interpretarRespostaViaCep({
+  cep: "68900-060",
+  logradouro: "Avenida Mendonça Furtado",
+  complemento: "até 2069/2070",
+  unidade: "",
+  bairro: "Central",
+  localidade: "Macapá",
+  uf: "AP",
+  estado: "Amapá",
+  regiao: "Norte",
+  ibge: "1600303",
+  ddd: "96",
+});
+checa("CEP válido é aceito", encontrado.ok);
+checa(
+  "localidade vira cidade",
+  encontrado.ok && encontrado.endereco.cidade === "Macapá",
+);
+// A ViaCEP manda `uf: "AP"` e `estado: "Amapá"` na mesma resposta, e o nosso
+// campo se chama "estado". Ler o campo de nome igual gravaria "Amapá" numa
+// coluna Char(2) — o banco truncaria para "Am" ou recusaria, dependendo do
+// humor, e ninguém ligaria uma coisa à outra.
+checa(
+  'o estado vem de "uf", não do campo "estado" da ViaCEP',
+  encontrado.ok && encontrado.endereco.estado === "AP",
+);
+checa(
+  "logradouro e bairro vêm junto",
+  encontrado.ok &&
+    encontrado.endereco.logradouro === "Avenida Mendonça Furtado" &&
+    encontrado.endereco.bairro === "Central",
+);
+
+checa(
+  "erro booleano é CEP não encontrado",
+  interpretarRespostaViaCep({ erro: true }).ok === false,
+);
+// A mesma API já devolveu o campo como string conforme a versão. Testar só o
+// booleano deixaria passar a outra forma, e o formulário apagaria o endereço.
+checa(
+  'erro como string "true" também é CEP não encontrado',
+  interpretarRespostaViaCep({ erro: "true" }).ok === false,
+);
+checa(
+  "corpo vazio não é aceito como endereço",
+  interpretarRespostaViaCep({}).ok === false,
+);
+checa(
+  "resposta que não é objeto não quebra",
+  interpretarRespostaViaCep("pagina de erro em html").ok === false,
+);
+checa("null não quebra", interpretarRespostaViaCep(null).ok === false);
+
+// CEP de rua inteira não traz logradouro, e isso é resultado bom: cidade e UF
+// valem, e a pessoa completa a rua à mão.
+const ruaInteira = interpretarRespostaViaCep({
+  cep: "68900-000",
+  logradouro: "",
+  bairro: "",
+  localidade: "Macapá",
+  uf: "AP",
+});
+checa("CEP de cidade inteira ainda preenche cidade e UF", ruaInteira.ok);
+checa(
+  "…e deixa logradouro em branco para preenchimento à mão",
+  ruaInteira.ok && ruaInteira.endereco.logradouro === "",
+);
+
+console.log("\nMáscara de CEP");
+for (const [digitado, esperado] of [
+  ["", ""],
+  ["689", "689"],
+  ["68900", "68900"],
+  ["689000", "68900-0"],
+  ["68900000", "68900-000"],
+  ["68900-000", "68900-000"],
+  ["6890000012345", "68900-000"],
+] as const) {
+  checa(`máscara de "${digitado}" é "${esperado}"`, mascaraCep(digitado) === esperado);
+}
 
 checa(
   "nomes iguais com acento e caixa diferentes têm a mesma chave",

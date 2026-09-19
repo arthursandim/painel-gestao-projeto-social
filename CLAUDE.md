@@ -138,11 +138,19 @@ Matrícula (automática) · nome · nascimento · turma · naturalidade · nome 
 ### Validações
 
 - CPF com dígito verificador, quando preenchido
-- CEP no formato `00000-000`, sem consulta externa na v1
+- CEP no formato `00000-000`, com consulta à ViaCEP — ver abaixo
 - Nascimento no passado, idade plausível
 - Telefone com DDD
 - Idade incompatível com a turma → **alerta, nunca bloqueio**
 - Nome igual a um já existente → aviso de possível duplicidade
+
+### Consulta de CEP
+
+O campo de CEP consulta a **ViaCEP** (API pública, sem chave) e preenche logradouro, bairro, cidade e estado.
+
+- A consulta dispara quando o campo **perde o foco**, nunca a cada tecla
+- Os campos preenchidos **continuam editáveis** — CEP de rua inteira existe, e bairro novo às vezes está desatualizado na base
+- CEP não encontrado ou API fora do ar: **aviso discreto e preenchimento à mão**. Nunca bloqueia o cadastro, pelo mesmo princípio da obrigatoriedade mínima — serviço externo indisponível não pode impedir alguém de cadastrar um aluno
 
 ### Responsável legal
 

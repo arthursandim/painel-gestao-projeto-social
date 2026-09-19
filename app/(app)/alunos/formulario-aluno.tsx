@@ -2,16 +2,17 @@
 
 import { Graduacao, Modalidade, ResponsavelTipo, Sexo } from "@prisma/client";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
 import type { EstadoAluno } from "./acoes";
 import { avisosDoAluno, IDADE_MAIORIDADE } from "@/lib/avisosAluno";
+import { consultarCep, mascaraCep, RECADO_FALHA } from "@/lib/cep";
 import { ehDiaValido, idadeEm } from "@/lib/data";
 import { CAMPOS_ALUNO, OPCOES_UF } from "@/lib/esquemaAluno";
 import { ROTULO_TIPO_SANGUINEO, TIPOS_SANGUINEOS } from "@/lib/saude";
-import { mascaraTelefone } from "@/lib/validacoes";
+import { mascaraTelefone, somenteDigitos } from "@/lib/validacoes";
 import {
   DESCRICAO_ESCALA,
   escalaDaGraduacao,
@@ -155,6 +156,56 @@ export function FormularioAluno({
   // sumir enquanto a pessoa digita.
   const [escola, setEscola] = useState(valores.escola);
   const [serie, setSerie] = useState(valores.serie);
+
+  // Endereço controlado porque a consulta de CEP escreve nele.
+  const [cep, setCep] = useState(valores.cep);
+  const [endereco, setEndereco] = useState(valores.endereco);
+  const [bairro, setBairro] = useState(valores.bairro);
+  const [cidade, setCidade] = useState(valores.cidade);
+  // `uf` e não `estado`: este componente já tem um `estado`, que é o da Server
+  // Action. Dois significados de "estado" no mesmo escopo seria pedir troca.
+  const [uf, setUf] = useState(valores.estado);
+  const [statusCep, setStatusCep] = useState<
+    { tipo: "ocioso" } | { tipo: "consultando" } | { tipo: "recado"; texto: string }
+  >({ tipo: "ocioso" });
+
+  /**
+   * O último CEP que já foi consultado, para o `blur` não repetir a chamada a
+   * cada vez que o campo perde o foco. Fica em ref e não em estado porque
+   * mudá-lo não precisa redesenhar nada.
+   */
+  const cepConsultado = useRef<string | null>(null);
+
+  async function aoSairDoCep() {
+    const digitos = somenteDigitos(cep);
+
+    // Campo vazio ou incompleto não vira reclamação aqui: quem cobra formato é
+    // o Zod, na hora de salvar. Reclamar no blur puniria quem só passou pelo
+    // campo com o Tab.
+    if (digitos.length !== 8 || digitos === cepConsultado.current) return;
+
+    cepConsultado.current = digitos;
+    setStatusCep({ tipo: "consultando" });
+
+    const resultado = await consultarCep(digitos);
+
+    if (!resultado.ok) {
+      // Indisponível é passageiro — esquece o registro para que sair e voltar
+      // ao campo tente de novo. CEP inexistente não vai passar a existir.
+      if (resultado.motivo === "indisponivel") cepConsultado.current = null;
+      setStatusCep({ tipo: "recado", texto: RECADO_FALHA[resultado.motivo] });
+      return;
+    }
+
+    // Sobrescreve mesmo se já houver endereço digitado: se o CEP mudou, o
+    // endereço antigo é de outro lugar. Os campos seguem editáveis depois —
+    // CEP de rua inteira existe, e bairro novo às vezes está desatualizado.
+    setEndereco(resultado.endereco.logradouro);
+    setBairro(resultado.endereco.bairro);
+    setCidade(resultado.endereco.cidade);
+    setUf(resultado.endereco.estado);
+    setStatusCep({ tipo: "ocioso" });
+  }
 
   const nascimentoValido = ehDiaValido(nascimento);
   const idade = nascimentoValido ? idadeEm(nascimento, hojeIso) : null;
@@ -656,15 +707,37 @@ export function FormularioAluno({
       </Secao>
 
       {/* ----------------------------------------------------- endereço */}
+      {/* O CEP vem primeiro porque agora é ele que preenche o resto. A ordem
+          na tela é a ordem em que a pessoa trabalha. */}
       <Secao titulo="Endereço">
-        <Campo nome="endereco" rotulo="Logradouro" largo>
+        <Campo
+          nome="cep"
+          rotulo="CEP"
+          dica={
+            statusCep.tipo === "consultando"
+              ? "Consultando…"
+              : "Ao sair do campo, o endereço é buscado nos Correios."
+          }
+        >
           <Input
-            id="endereco"
-            name="endereco"
-            defaultValue={valores.endereco}
+            id="cep"
+            name="cep"
+            inputMode="numeric"
+            value={cep}
+            onChange={(e) => setCep(mascaraCep(e.target.value))}
+            onBlur={aoSairDoCep}
+            placeholder="68900-000"
             className="h-11"
           />
+          {statusCep.tipo === "recado" ? (
+            // Discreto e sem variante destrutiva: não é erro de quem cadastra,
+            // e o cadastro segue normalmente sem isto.
+            <p role="status" className="text-muted-foreground mt-2 text-xs">
+              {statusCep.texto}
+            </p>
+          ) : null}
         </Campo>
+
         <Campo nome="numero" rotulo="Número">
           <Input
             id="numero"
@@ -673,24 +746,47 @@ export function FormularioAluno({
             className="h-11"
           />
         </Campo>
+
+        {/* Logradouro depois do número porque o número é o único campo deste
+            bloco que a consulta não preenche — quem digitou o CEP continua
+            digitando, em vez de pular por cima de quatro campos já prontos. */}
+        <Campo nome="endereco" rotulo="Logradouro" largo>
+          <Input
+            id="endereco"
+            name="endereco"
+            value={endereco}
+            onChange={(e) => setEndereco(e.target.value)}
+            className="h-11"
+          />
+        </Campo>
+
         <Campo nome="bairro" rotulo="Bairro">
           <Input
             id="bairro"
             name="bairro"
-            defaultValue={valores.bairro}
+            value={bairro}
+            onChange={(e) => setBairro(e.target.value)}
             className="h-11"
           />
         </Campo>
+
         <Campo nome="cidade" rotulo="Cidade">
           <Input
             id="cidade"
             name="cidade"
-            defaultValue={valores.cidade}
+            value={cidade}
+            onChange={(e) => setCidade(e.target.value)}
             className="h-11"
           />
         </Campo>
+
         <Campo nome="estado" rotulo="Estado">
-          <Select id="estado" name="estado" defaultValue={valores.estado}>
+          <Select
+            id="estado"
+            name="estado"
+            value={uf}
+            onChange={(e) => setUf(e.target.value)}
+          >
             <option value="">—</option>
             {OPCOES_UF.map((uf) => (
               <option key={uf} value={uf}>
@@ -698,16 +794,6 @@ export function FormularioAluno({
               </option>
             ))}
           </Select>
-        </Campo>
-        <Campo nome="cep" rotulo="CEP" dica="Formato 00000-000.">
-          <Input
-            id="cep"
-            name="cep"
-            inputMode="numeric"
-            defaultValue={valores.cep}
-            placeholder="68900-000"
-            className="h-11"
-          />
         </Campo>
       </Secao>
 
