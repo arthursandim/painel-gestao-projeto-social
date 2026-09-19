@@ -1,0 +1,439 @@
+// Projeto Social Engenho Cidadão — schema de dados
+//
+// Regras estruturais que este schema materializa:
+// - Nada é apagado: aluno desligado muda de status, documento substituído deixa
+//   de ser vigente, empréstimo devolvido muda de status.
+// - Presença é gravada explicitamente para todos (presentes e ausentes).
+// - Toda escrita relevante guarda autor e timestamp.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------- enums
+
+enum Papel {
+  ADMIN
+  INSCRICOES
+  INVENTARIO
+  PROFESSOR
+}
+
+enum StatusAluno {
+  ATIVO
+  DESLIGADO
+}
+
+enum Sexo {
+  M
+  F
+}
+
+enum Modalidade {
+  JIU_JITSU
+}
+
+// As duas escalas são independentes e ambas têm faixa branca, por isso o
+// prefixo: ele torna a escala legível a partir do próprio valor. A escala de um
+// aluno é derivada da data de nascimento (kids até 15, adulto a partir de 16) e
+// não da turma, cujo corte é outro (kids até 11a11m29d).
+enum Graduacao {
+  KIDS_BRANCA
+  KIDS_CINZA_BRANCA
+  KIDS_CINZA
+  KIDS_CINZA_PRETA
+  KIDS_AMARELA_BRANCA
+  KIDS_AMARELA
+  KIDS_AMARELA_PRETA
+  KIDS_LARANJA_BRANCA
+  KIDS_LARANJA
+  KIDS_LARANJA_PRETA
+  KIDS_VERDE_BRANCA
+  KIDS_VERDE
+  KIDS_VERDE_PRETA
+  ADULTO_BRANCA
+  ADULTO_AZUL
+  ADULTO_ROXA
+  ADULTO_MARROM
+  ADULTO_PRETA
+}
+
+// Referência, não cópia: em PAI e MAE o nome do responsável é derivado na
+// leitura de nomePai/nomeMae, para que corrigir o cadastro corrija o responsável.
+enum ResponsavelTipo {
+  PAI
+  MAE
+  OUTRO
+}
+
+enum TipoDocumento {
+  FICHA_MENOR
+  FICHA_ADULTO
+  RG_ALUNO
+  ENDERECO_ALUNO
+  RG_RESPONSAVEL
+  ENDERECO_RESPONSAVEL
+  OUTROS
+}
+
+enum StatusListaEspera {
+  AGUARDANDO
+  CONVERTIDO
+  REMOVIDO
+}
+
+enum EstadoConservacao {
+  NOVO
+  BOM
+  REGULAR
+  RUIM
+  INSERVIVEL
+}
+
+enum StatusEmprestimo {
+  EMPRESTADO
+  DEVOLVIDO
+  PERDIDO
+}
+
+enum TipoMovimento {
+  ENTRADA
+  SAIDA
+}
+
+// ---------------------------------------------------------------- usuário
+
+model Usuario {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Vínculo com o Supabase Auth. Nulo enquanto o convite não foi aceito.
+  authUserId String? @unique @db.Uuid
+
+  nome   String
+  email  String  @unique
+  papeis Papel[]
+  ativo  Boolean @default(true)
+
+  criadoPorId String?  @db.Uuid
+  criadoPor   Usuario? @relation("UsuarioCriadoPor", fields: [criadoPorId], references: [id])
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  usuariosCriados          Usuario[]          @relation("UsuarioCriadoPor")
+  alunosCriados            Aluno[]            @relation("AlunoCriadoPor")
+  alunosAtualizados        Aluno[]            @relation("AlunoAtualizadoPor")
+  alunosDesligados         Aluno[]            @relation("AlunoDesligadoPor")
+  alunosAutorizados        Aluno[]            @relation("AlunoAutorizadoPor")
+  presencasRegistradas     Presenca[]
+  documentosEnviados       Documento[]
+  esperaCriada             ListaEspera[]      @relation("EsperaCriadoPor")
+  esperaConvertida         ListaEspera[]      @relation("EsperaConvertidoPor")
+  itensCriados             Item[]
+  emprestimosConcedidos    Emprestimo[]       @relation("EmprestimoEmprestadoPor")
+  devolucoesRecebidas      Emprestimo[]       @relation("EmprestimoRecebidoPor")
+  movimentosRegistrados    MovimentoEstoque[]
+  configuracoesAtualizadas Configuracao[]
+
+  @@index([ativo])
+}
+
+// ---------------------------------------------------------------- turma
+
+model Turma {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Identificador estável para o código referenciar a turma sem gravar id.
+  codigo String @unique
+  nome   String
+
+  // Editável em configuração, nunca fixa em código. Kids e Jovens/Adultos têm
+  // limites independentes.
+  capacidade Int
+
+  ativa Boolean @default(true)
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  alunos      Aluno[]
+  presencas   Presenca[]
+  listaEspera ListaEspera[]
+}
+
+// ---------------------------------------------------------------- aluno
+
+model Aluno {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Sequencial única no formato A0001.
+  matricula String @unique
+
+  // Obrigatórios — o resto é opcional de propósito, porque formulário rígido
+  // produz cadastro não feito ou dado inventado.
+  nome       String
+  nascimento DateTime   @db.Date
+  turmaId    String     @db.Uuid
+  turma      Turma      @relation(fields: [turmaId], references: [id])
+  modalidade Modalidade @default(JIU_JITSU)
+  graduacao  Graduacao
+  grau       Int        @default(0)
+  sexo       Sexo
+
+  graduacaoData DateTime? @db.Date
+
+  naturalidade String?
+  nomePai      String?
+  nomeMae      String?
+
+  responsavelTipo       ResponsavelTipo?
+  responsavelNome       String?
+  responsavelParentesco String?
+
+  endereco String?
+  numero   String?
+  bairro   String?
+  cidade   String?
+  estado   String? @db.Char(2)
+  cep      String?
+
+  telefoneResponsavel String?
+  telefoneAluno       String?
+  email               String?
+
+  rg             String?
+  rgOrgaoEmissor String?
+  rgUf           String?   @db.Char(2)
+  rgDataEmissao  DateTime? @db.Date
+  cpf            String?   @unique
+
+  escola String?
+  serie  String?
+
+  peso   Decimal? @db.Decimal(5, 2)
+  altura Decimal? @db.Decimal(4, 2)
+
+  // Caminho no bucket privado. Uma foto vigente, substituível, sem histórico —
+  // fora da tabela de documentos, que é a trilha legal auditável.
+  fotoPath String?
+
+  status          StatusAluno @default(ATIVO)
+  desligadoEm     DateTime?
+  desligadoMotivo String?
+  desligadoPorId  String?     @db.Uuid
+  desligadoPor    Usuario?    @relation("AlunoDesligadoPor", fields: [desligadoPorId], references: [id])
+
+  // Matrícula acima da capacidade da turma exige autorização explícita de admin.
+  acimaCapacidade               Boolean   @default(false)
+  autorizacaoAcimaPorId         String?   @db.Uuid
+  autorizacaoAcimaPor           Usuario?  @relation("AlunoAutorizadoPor", fields: [autorizacaoAcimaPorId], references: [id])
+  autorizacaoAcimaEm            DateTime?
+  autorizacaoAcimaJustificativa String?
+
+  criadoPorId     String?  @db.Uuid
+  criadoPor       Usuario? @relation("AlunoCriadoPor", fields: [criadoPorId], references: [id])
+  atualizadoPorId String?  @db.Uuid
+  atualizadoPor   Usuario? @relation("AlunoAtualizadoPor", fields: [atualizadoPorId], references: [id])
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  presencas    Presenca[]
+  documentos   Documento[]
+  emprestimos  Emprestimo[]
+  origemEspera ListaEspera?
+
+  @@index([turmaId, status])
+  @@index([status])
+  @@index([nome])
+}
+
+// ---------------------------------------------------------------- presença
+
+model Presenca {
+  id String @id @default(uuid()) @db.Uuid
+
+  alunoId String @db.Uuid
+  aluno   Aluno  @relation(fields: [alunoId], references: [id])
+
+  // Gravada junto do aluno porque o aluno pode trocar de turma depois e a
+  // chamada é consultada por turma e data.
+  turmaId String @db.Uuid
+  turma   Turma  @relation(fields: [turmaId], references: [id])
+
+  data     DateTime @db.Date
+  presente Boolean
+
+  registradoPorId String?  @db.Uuid
+  registradoPor   Usuario? @relation(fields: [registradoPorId], references: [id])
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  // Refazer a chamada atualiza, nunca duplica.
+  @@unique([alunoId, data])
+  @@index([turmaId, data])
+}
+
+// ---------------------------------------------------------------- documentos
+
+model Documento {
+  id String @id @default(uuid()) @db.Uuid
+
+  alunoId String        @db.Uuid
+  aluno   Aluno         @relation(fields: [alunoId], references: [id])
+  tipo    TipoDocumento
+
+  nomeArquivo  String
+  caminho      String @unique
+  hashSha256   String @db.Char(64)
+  tamanhoBytes Int
+
+  // Esta coluna, e não o nome do arquivo, responde qual é a versão vigente.
+  vigente Boolean @default(true)
+
+  // Versão do template, só para as fichas.
+  versaoFicha String?
+
+  enviadoPorId String?  @db.Uuid
+  enviadoPor   Usuario? @relation(fields: [enviadoPorId], references: [id])
+  enviadoEm    DateTime @default(now())
+
+  @@index([alunoId, tipo, vigente])
+}
+
+// ---------------------------------------------------------------- lista de espera
+
+model ListaEspera {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Dados mínimos de propósito — a pessoa ainda não é aluno.
+  nome       String
+  nascimento DateTime @db.Date
+  telefone   String?
+
+  turmaPretendidaId String? @db.Uuid
+  turmaPretendida   Turma?  @relation(fields: [turmaPretendidaId], references: [id])
+
+  dataEntrada DateTime          @db.Date
+  observacao  String?
+  status      StatusListaEspera @default(AGUARDANDO)
+
+  alunoId         String?   @unique @db.Uuid
+  aluno           Aluno?    @relation(fields: [alunoId], references: [id])
+  convertidoEm    DateTime?
+  convertidoPorId String?   @db.Uuid
+  convertidoPor   Usuario?  @relation("EsperaConvertidoPor", fields: [convertidoPorId], references: [id])
+
+  criadoPorId String?  @db.Uuid
+  criadoPor   Usuario? @relation("EsperaCriadoPor", fields: [criadoPorId], references: [id])
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  @@index([status, dataEntrada])
+}
+
+// ---------------------------------------------------------------- inventário
+
+// Um único cadastro para tudo. O que varia é apenas se o item pode ser
+// emprestado. A quantidade atual é derivada dos movimentos — por isso não
+// existe coluna de quantidade aqui.
+model Item {
+  id String @id @default(uuid()) @db.Uuid
+
+  descricao  String
+  categoria  String?
+  fotoPath   String?
+  observacao String?
+
+  unidadeMedida    String @default("un")
+  quantidadeMinima Int    @default(0)
+
+  // Código, patrimônio ou etiqueta, quando importa saber qual unidade é qual.
+  identificacao String?
+
+  estadoConservacao EstadoConservacao @default(BOM)
+  podeSerEmprestado Boolean           @default(false)
+  ativo             Boolean           @default(true)
+
+  criadoPorId String?  @db.Uuid
+  criadoPor   Usuario? @relation(fields: [criadoPorId], references: [id])
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  movimentos  MovimentoEstoque[]
+  emprestimos Emprestimo[]
+
+  @@index([ativo])
+  @@index([descricao])
+}
+
+model Emprestimo {
+  id String @id @default(uuid()) @db.Uuid
+
+  itemId String @db.Uuid
+  item   Item   @relation(fields: [itemId], references: [id])
+
+  // Empréstimo exige um aluno.
+  alunoId String @db.Uuid
+  aluno   Aluno  @relation(fields: [alunoId], references: [id])
+
+  status StatusEmprestimo @default(EMPRESTADO)
+
+  dataEmprestimo  DateTime @db.Date
+  emprestadoPorId String?  @db.Uuid
+  emprestadoPor   Usuario? @relation("EmprestimoEmprestadoPor", fields: [emprestadoPorId], references: [id])
+
+  dataDevolucao DateTime? @db.Date
+  recebidoPorId String?   @db.Uuid
+  recebidoPor   Usuario?  @relation("EmprestimoRecebidoPor", fields: [recebidoPorId], references: [id])
+
+  observacao String?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  @@index([itemId, status])
+  @@index([alunoId, status])
+}
+
+model MovimentoEstoque {
+  id String @id @default(uuid()) @db.Uuid
+
+  itemId String @db.Uuid
+  item   Item   @relation(fields: [itemId], references: [id])
+
+  tipo       TipoMovimento
+  quantidade Int
+  motivo     String
+  data       DateTime      @db.Date
+
+  autorId String?  @db.Uuid
+  autor   Usuario? @relation(fields: [autorId], references: [id])
+
+  criadoEm DateTime @default(now())
+
+  @@index([itemId, data])
+}
+
+// ---------------------------------------------------------------- configuração
+
+// Chave-valor porque são poucos parâmetros e eles crescem por fase. A
+// capacidade de cada turma mora na própria turma.
+model Configuracao {
+  chave     String  @id
+  valor     String
+  descricao String?
+
+  atualizadoPorId String?  @db.Uuid
+  atualizadoPor   Usuario? @relation(fields: [atualizadoPorId], references: [id])
+  atualizadoEm    DateTime @updatedAt
+}
