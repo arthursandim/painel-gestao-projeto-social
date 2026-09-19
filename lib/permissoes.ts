@@ -101,6 +101,24 @@ export function ehAdmin(papeisDoUsuario: readonly Papel[]): boolean {
   return papeisDoUsuario.includes(Papel.ADMIN);
 }
 
+/**
+ * Quem grava aluno.
+ *
+ * Não é a mesma pergunta que MODULOS responde. O mapa de rotas diz quem *abre*
+ * /alunos, e o professor abre — ele consulta a turma. Escrever é outra coisa, e
+ * o CLAUDE.md lhe dá "chamada e consulta", não cadastro. Por isso a lista mora
+ * aqui, ao lado do mapa, e não espalhada nas telas: são duas regras distintas
+ * sobre o mesmo módulo, e a que fica escondida numa tela é a que diverge.
+ */
+export const PAPEIS_ESCRITA_ALUNO: readonly Papel[] = [
+  Papel.ADMIN,
+  Papel.INSCRICOES,
+];
+
+export function podeEscreverAluno(papeisDoUsuario: readonly Papel[]): boolean {
+  return temAlgumPapel(papeisDoUsuario, PAPEIS_ESCRITA_ALUNO);
+}
+
 /** Módulos que este usuário enxerga no menu. */
 export function modulosVisiveis(papeisDoUsuario: readonly Papel[]) {
   return MODULOS.filter((m) => temAlgumPapel(papeisDoUsuario, m.papeis));

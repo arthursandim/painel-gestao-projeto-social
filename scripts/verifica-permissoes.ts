@@ -11,7 +11,12 @@
  */
 import { Papel } from "@prisma/client";
 
-import { MODULOS, podeAcessar, type RotaModulo } from "../lib/permissoes";
+import {
+  MODULOS,
+  podeAcessar,
+  podeEscreverAluno,
+  type RotaModulo,
+} from "../lib/permissoes";
 import {
   CAMPOS_VEDADOS_AO_PROFESSOR,
   podeVerDocumentos,
@@ -118,6 +123,23 @@ for (const papel of Object.keys(esperado) as Papel[]) {
 checa(
   "usuário sem papel não abre rota nenhuma",
   MODULOS.every((m) => !podeAcessar([], m.rota)),
+);
+
+console.log("\nEscrita de aluno — abrir a rota não é poder gravar nela");
+
+// A regra que a fase 3 acrescentou. Ela é fácil de perder porque contraria a
+// intuição do mapa de rotas: o professor abre /alunos e mesmo assim não pode
+// cadastrar, editar nem desligar ninguém.
+checa("professor abre /alunos", podeAcessar([Papel.PROFESSOR], "/alunos"));
+checa("…e não grava aluno", !podeEscreverAluno([Papel.PROFESSOR]));
+
+checa("inscrições grava aluno", podeEscreverAluno([Papel.INSCRICOES]));
+checa("admin grava aluno", podeEscreverAluno([Papel.ADMIN]));
+checa("inventário não grava aluno", !podeEscreverAluno([Papel.INVENTARIO]));
+checa("sem papel não grava aluno", !podeEscreverAluno([]));
+checa(
+  "professor + inscrições grava (união dos papéis)",
+  podeEscreverAluno([Papel.PROFESSOR, Papel.INSCRICOES]),
 );
 
 console.log(

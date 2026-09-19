@@ -66,14 +66,20 @@ const SELECAO_COMPLETA = {
   desligadoEm: true,
   desligadoMotivo: true,
   desligadoPorId: true,
+  desligadoPor: { select: { nome: true } },
 
   acimaCapacidade: true,
   autorizacaoAcimaPorId: true,
   autorizacaoAcimaEm: true,
   autorizacaoAcimaJustificativa: true,
+  autorizacaoAcimaPor: { select: { nome: true } },
 
+  // Toda escrita relevante guarda autor e timestamp, e a ficha mostra os dois:
+  // trilha que ninguém consegue ler não serve de trilha.
   criadoPorId: true,
   atualizadoPorId: true,
+  criadoPor: { select: { nome: true } },
+  atualizadoPor: { select: { nome: true } },
   criadoEm: true,
   atualizadoEm: true,
 } as const satisfies Prisma.AlunoSelect;
@@ -140,6 +146,22 @@ export function selectAlunoPara(
 /** ADMIN e INSCRICOES enxergam a ficha inteira. PROFESSOR, não. */
 export function podeVerDadosSensiveis(papeis: readonly Papel[]): boolean {
   return papeis.includes(Papel.ADMIN) || papeis.includes(Papel.INSCRICOES);
+}
+
+/**
+ * Estreita o tipo do registro devolvido por uma consulta que usou
+ * `selectAlunoPara` com os mesmos papéis.
+ *
+ * A consulta devolve a união dos dois formatos, e a tela precisa saber qual
+ * recebeu. Um `as AlunoCompleto` resolveria e mentiria: valeria mesmo se a
+ * consulta tivesse usado outros papéis. Amarrando a guarda ao mesmo predicado
+ * que escolheu a seleção, as duas decisões não têm como divergir.
+ */
+export function ehAlunoCompleto(
+  aluno: AlunoReduzido | AlunoCompleto,
+  papeis: readonly Papel[],
+): aluno is AlunoCompleto {
+  return podeVerDadosSensiveis(papeis);
 }
 
 /**
