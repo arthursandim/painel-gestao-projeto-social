@@ -83,6 +83,13 @@ const SELECAO_COMPLETA = {
  *
  * Existe para ser conferido por teste, e não só lido: é a lista das quatro
  * linhas "Não" da tabela do CLAUDE.md, escrita em nomes de coluna.
+ *
+ * O bloco final não está naquela tabela. São campos que ela não menciona, e a
+ * decisão — confirmada com o desenvolvedor na fase 3 — foi default-deny: campo
+ * que ninguém autorizou não aparece. `responsavelNome` e `responsavelParentesco`
+ * só existem quando o responsável é um terceiro (avó, tio, guardião), e o nome
+ * de um terceiro não tem por que circular na visão reduzida; nome do pai e nome
+ * da mãe continuam visíveis porque a tabela os autoriza explicitamente.
  */
 export const CAMPOS_VEDADOS_AO_PROFESSOR = [
   "telefoneResponsavel",
@@ -102,6 +109,11 @@ export const CAMPOS_VEDADOS_AO_PROFESSOR = [
   "escola",
   "serie",
   "documentos",
+
+  "naturalidade",
+  "responsavelTipo",
+  "responsavelNome",
+  "responsavelParentesco",
 ] as const;
 
 export type AlunoReduzido = Prisma.AlunoGetPayload<{
