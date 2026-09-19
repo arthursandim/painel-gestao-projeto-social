@@ -110,7 +110,7 @@ Entidades: `Usuario`, `Turma`, `Aluno`, `Presenca`, `Documento`, `ListaEspera`, 
 - `Modalidade`: `JIU_JITSU` (único valor por ora; o campo existe para evitar migração futura)
 - `TipoDocumento`: `FICHA_MENOR`, `FICHA_ADULTO`, `RG_ALUNO`, `ENDERECO_ALUNO`, `RG_RESPONSAVEL`, `ENDERECO_RESPONSAVEL`, `OUTROS`
 - `StatusEmprestimo`: `EMPRESTADO`, `DEVOLVIDO`, `PERDIDO`
-- `Graduacao`: duas escalas independentes (ver abaixo)
+- `Graduacao`: duas escalas independentes, com a escala no prefixo do valor (ver abaixo)
 
 ### Notas por entidade
 
@@ -166,6 +166,18 @@ Lista suspensa com opções pré-definidas, **nunca texto livre** (vai alimentar
 | Adulto | 16 anos ou mais | Branca · Azul · Roxa · Marrom · Preta |
 
 Graus: 0 a 4 em ambas.
+
+### O valor gravado carrega a escala
+
+As duas escalas têm faixa branca, então `BRANCA` sozinho é ambíguo. O enum `Graduacao` prefixa cada valor com a escala: `KIDS_BRANCA`, `ADULTO_BRANCA`, `KIDS_VERDE_PRETA`.
+
+**Não existe coluna de escala.** Ela seria estado derivável da data de nascimento e envelheceria: o aluno faz 16 anos, o nascimento não muda, e a coluna passa a mentir — ou é atualizada e passa a contradizer a faixa gravada. Duas colunas podem discordar entre si; uma não discorda de si mesma.
+
+Com o prefixo, tanto "a faixa escolhida não existe na nova escala" quanto o alerta de troca de escala viram comparação de prefixo contra a escala calculada do nascimento, sem tabela de-para.
+
+Custo assumido: mudar a lista de faixas exige migration. Vale enquanto as faixas forem fixas. Se um dia a diretoria quiser editá-las por tela, o certo passa a ser tabela de domínio, não enum.
+
+`grau` é coluna própria, de 0 a 4, com *check constraint* no banco.
 
 ### ATENÇÃO: a régua da graduação não é a régua da turma
 
@@ -360,6 +372,18 @@ Quando importa saber **qual** unidade está com quem (kimono), cada unidade é u
 
 Entrada e saída com data, quantidade, motivo e autor. **A quantidade atual é derivada dos movimentos, nunca editada direto.** A quantidade informada no cadastro vira o primeiro movimento de entrada.
 
+`Item` **não tem coluna de quantidade.** A ausência da coluna é o que faz a regra acima valer: sem coluna não existe caminho para alguém escrever nela — nem tela, nem script de correção — e o saldo não tem como divergir dos movimentos. O campo quantidade existe no formulário de cadastro, não na tabela.
+
+A quantidade do movimento é sempre positiva, com *check constraint* no banco. O sentido é o tipo (`ENTRADA`/`SAIDA`), nunca o sinal.
+
+### Empréstimo não é saída
+
+**Emprestar não gera movimento de estoque.** O item emprestado continua sendo do projeto e continua no total — só não está disponível. Se o empréstimo gerasse `SAIDA`, o total já cairia e `total − emprestados` descontaria a mesma unidade duas vezes.
+
+**`SAIDA` é só para saída definitiva: perda, descarte, doação.**
+
+Daí a simetria: **marcar um empréstimo como perdido gera `SAIDA`.** O item sumiu do total, e como o status deixa de ser `EMPRESTADO`, ele para de contar como emprestado no mesmo movimento. As duas pontas fecham.
+
 Acesso: só `INVENTARIO` e `ADMIN`.
 
 ---
@@ -451,8 +475,9 @@ O risco não é o app não funcionar. É funcionar **errado de um jeito que pass
 - **Corte da turma.** 11 anos, 11 meses e 29 dias → ainda apto a Kids; no dia seguinte, aviso.
 - **Corte da escala.** 14 anos em Jovens/Adultos oferece faixas kids **sem aviso nenhum** (é normal). Aos 16, alerta e escala adulta.
 - **Turma cheia.** `INSCRICOES` é barrado; admin autoriza e a matrícula grava com o registro da autorização.
-- **Empréstimo duplicado.** Emprestar unidade única que já está na rua.
-- **Saldo de estoque.** Quantidade atual sempre bate com a soma dos movimentos.
+- **Empréstimo duplicado.** Emprestar unidade única que já está na rua. **O banco não barra** — regra de aplicação da fase 8.
+- **Saída maior que o saldo.** Dar baixa de 5 num item que tem 3. **O banco não barra** — regra de aplicação da fase 8. O *check constraint* garante quantidade positiva, não saldo suficiente.
+- **Saldo de estoque.** Quantidade atual sempre bate com a soma dos movimentos — verdadeiro por construção, já que não existe coluna de quantidade. O que precisa mesmo de teste é o empréstimo não mexer no total.
 - **Aluno duplicado.** Dois nomes iguais → aviso.
 - **Câmera.** Negar permissão → cai no seletor de arquivo, não trava. Fechar o modal no meio da captura → luz da câmera apaga. Testar Android e iPhone.
 
