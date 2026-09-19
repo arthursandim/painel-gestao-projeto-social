@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
@@ -96,7 +97,13 @@ export function FormNovoUsuario({ campos }: { campos: React.ReactNode }) {
       {campos}
 
       <Recado estado={estado} />
-      <Enviar>Criar usuário</Enviar>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Enviar>Criar usuário</Enviar>
+        <Button asChild variant="ghost" size="sm" className="min-h-11 md:min-h-9">
+          <Link href="/config">Cancelar</Link>
+        </Button>
+      </div>
     </form>
   );
 }

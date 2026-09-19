@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import {
   FormAtivo,
@@ -8,6 +7,7 @@ import {
   FormSenha,
 } from "./formularios";
 import { SeletorPapeis } from "./seletor-papeis";
+import { BotaoVoltar } from "@/components/botao-voltar";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -43,12 +43,8 @@ export default async function UsuariosPage() {
 
   return (
     <section className="space-y-6">
-      <div className="space-y-1">
-        <p className="text-muted-foreground text-sm">
-          <Link href="/config" className="hover:underline">
-            Configuração
-          </Link>
-        </p>
+      <div className="flex flex-col space-y-1">
+        <BotaoVoltar href="/config">Configuração</BotaoVoltar>
         <h1 className="text-2xl font-semibold">Usuários</h1>
         <p className="text-muted-foreground text-sm">
           Contas são criadas aqui e em nenhum outro lugar — não existe

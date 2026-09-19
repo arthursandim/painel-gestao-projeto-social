@@ -408,6 +408,18 @@ O default 3 não é arbitrário: os termos assinados pelas famílias estabelecem
 
 ---
 
+## Navegação
+
+O cabeçalho leva às telas principais dos módulos. **Toda subtela tem botão de retorno visível para a tela principal da sua categoria** — `/config/usuarios` volta para `/config`, `/alunos/[id]` volta para `/alunos`.
+
+Formulário de criação ou edição tem, além disso, **cancelamento explícito**, ao lado do botão que salva.
+
+O destino é escrito na chamada, nunca `history.back()`: quem chega por URL digitada, por link ou depois de um redirect não tem histórico útil, e o botão precisa funcionar igual nos três casos.
+
+Componente: `components/botao-voltar.tsx`.
+
+---
+
 ## Responsividade
 
 Todos os módulos funcionam em computador e celular. **Não existe tela exclusiva de um dos dois, e nada é bloqueado por tipo de dispositivo.**
