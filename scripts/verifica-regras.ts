@@ -28,6 +28,8 @@ import {
   ehCepValido,
   ehCpfValido,
   ehTelefoneValido,
+  formatarTelefone,
+  mascaraTelefone,
 } from "../lib/validacoes";
 
 let falhas = 0;
@@ -227,6 +229,126 @@ checa(
   ).some((a) => a.codigo === "RESPONSAVEL"),
 );
 checa(
+  "menor sem escola vira pendência",
+  avisosDoAluno(
+    {
+      nascimento: "2014-09-20",
+      graduacao: Graduacao.KIDS_CINZA,
+      turma: KIDS,
+      responsavelTipo: ResponsavelTipo.MAE,
+      escola: null,
+      serie: null,
+    },
+    "2026-09-19",
+  ).some((a) => a.codigo === "ESCOLA"),
+);
+checa(
+  "menor com escola mas sem série também vira pendência",
+  avisosDoAluno(
+    {
+      nascimento: "2014-09-20",
+      graduacao: Graduacao.KIDS_CINZA,
+      turma: KIDS,
+      responsavelTipo: ResponsavelTipo.MAE,
+      escola: "Escola Municipal X",
+      serie: null,
+    },
+    "2026-09-19",
+  ).some((a) => a.codigo === "ESCOLA"),
+);
+checa(
+  "menor com escola e série não gera pendência",
+  !avisosDoAluno(
+    {
+      nascimento: "2014-09-20",
+      graduacao: Graduacao.KIDS_CINZA,
+      turma: KIDS,
+      responsavelTipo: ResponsavelTipo.MAE,
+      escola: "Escola Municipal X",
+      serie: "6º ano",
+    },
+    "2026-09-19",
+  ).some((a) => a.codigo === "ESCOLA"),
+);
+
+// O corte dos 18: nada de escola nem de responsável é cobrado do adulto.
+const adultoSemNada = avisosDoAluno(
+  {
+    nascimento: "2000-01-01",
+    graduacao: Graduacao.ADULTO_AZUL,
+    turma: JOVENS,
+    responsavelTipo: null,
+    escola: null,
+    serie: null,
+  },
+  "2026-09-19",
+);
+checa("adulto sem escola não é cobrado", !adultoSemNada.some((a) => a.codigo === "ESCOLA"));
+checa(
+  "adulto sem responsável não é cobrado",
+  !adultoSemNada.some((a) => a.codigo === "RESPONSAVEL"),
+);
+checa("adulto em dia não gera aviso nenhum", adultoSemNada.length === 0);
+
+// Véspera dos 18: um dia antes, as duas cobranças ainda valem.
+const vesperaDos18 = avisosDoAluno(
+  {
+    nascimento: "2008-09-20",
+    graduacao: Graduacao.ADULTO_AZUL,
+    turma: JOVENS,
+    responsavelTipo: null,
+    escola: null,
+    serie: null,
+  },
+  "2026-09-19",
+);
+checa(
+  "17a11m29d ainda é cobrado de escola",
+  vesperaDos18.some((a) => a.codigo === "ESCOLA"),
+);
+checa(
+  "17a11m29d ainda é cobrado de responsável",
+  vesperaDos18.some((a) => a.codigo === "RESPONSAVEL"),
+);
+
+// A visão reduzida do professor não traz escola: a pendência não pode ser
+// inventada a partir de um campo que a consulta nem leu.
+checa(
+  "visão sem escola não inventa a pendência",
+  !avisosDoAluno(
+    {
+      nascimento: "2014-09-20",
+      graduacao: Graduacao.KIDS_CINZA,
+      turma: KIDS,
+      responsavelTipo: ResponsavelTipo.MAE,
+    },
+    "2026-09-19",
+  ).some((a) => a.codigo === "ESCOLA"),
+);
+
+// Ficha de menor aos 18 só acende quando a fase 5 souber dizer qual ficha está
+// vigente. Sem isso, todo aluno adulto carregaria um aviso permanente.
+checa(
+  "sem dado de documento, maioridade não gera aviso de ficha",
+  !adultoSemNada.some((a) => a.codigo === "FICHA_MAIORIDADE"),
+);
+checa(
+  "com ficha de menor vigente, o aviso acende",
+  avisosDoAluno(
+    {
+      nascimento: "2000-01-01",
+      graduacao: Graduacao.ADULTO_AZUL,
+      turma: JOVENS,
+      responsavelTipo: null,
+      escola: null,
+      serie: null,
+      temFichaMenorVigente: true,
+    },
+    "2026-09-19",
+  ).some((a) => a.codigo === "FICHA_MAIORIDADE"),
+);
+
+checa(
   "acima da capacidade nomeia quem autorizou",
   avisosDoAluno(
     {
@@ -298,6 +420,46 @@ checa("celular com DDD passa", ehTelefoneValido("(96) 99123-4567"));
 checa("fixo com DDD passa", ehTelefoneValido("(96) 3223-4567"));
 checa("número sem DDD é recusado", !ehTelefoneValido("99123-4567"));
 checa("DDD inexistente é recusado", !ehTelefoneValido("(01) 99123-4567"));
+
+console.log("\nMáscara de telefone — tudo é gravado no mesmo formato");
+
+checa(
+  "celular cru vira (96) 99123-4567",
+  formatarTelefone("96991234567") === "(96) 99123-4567",
+);
+checa(
+  "fixo cru vira (96) 3223-4567",
+  formatarTelefone("9632234567") === "(96) 3223-4567",
+);
+checa(
+  "número já formatado não muda",
+  formatarTelefone("(96) 99123-4567") === "(96) 99123-4567",
+);
+checa(
+  "formatar é idempotente",
+  formatarTelefone(formatarTelefone("96991234567")) === "(96) 99123-4567",
+);
+
+// A máscara progressiva, tecla a tecla.
+for (const [digitado, esperado] of [
+  ["", ""],
+  ["9", "(9"],
+  ["96", "(96"],
+  ["969", "(96) 9"],
+  ["969912", "(96) 9912"],
+  ["9699123456", "(96) 9912-3456"],
+  ["96991234567", "(96) 99123-4567"],
+  ["969912345678999", "(96) 99123-4567"],
+] as const) {
+  checa(
+    `máscara de "${digitado}" é "${esperado}"`,
+    mascaraTelefone(digitado) === esperado,
+  );
+}
+checa(
+  "colar um número com +55 e pontos ainda funciona",
+  mascaraTelefone("96.99123.4567") === "(96) 99123-4567",
+);
 
 checa(
   "nomes iguais com acento e caixa diferentes têm a mesma chave",

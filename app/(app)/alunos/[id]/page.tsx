@@ -18,7 +18,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { exigirAcesso } from "@/lib/auth";
-import { avisosDoAluno } from "@/lib/avisosAluno";
+import { avisosDoAluno, IDADE_MAIORIDADE } from "@/lib/avisosAluno";
 import { dataParaDia, formatarDiaBr, hojeNoProjeto, idadeHoje } from "@/lib/data";
 import { descreverGraduacao, ROTULO_ESCALA, escalaDaGraduacao } from "@/lib/graduacao";
 import { podeEscreverAluno } from "@/lib/permissoes";
@@ -93,20 +93,32 @@ export default async function AlunoPage({
     hoje,
   );
 
-  const responsavel = completo ? responsavelDoAluno(completo) : null;
+  const menor = idade < IDADE_MAIORIDADE;
+  const responsavel = completo && menor ? responsavelDoAluno(completo) : null;
 
   // Indicador de completude: o que falta, em vez de obrigatoriedade no
   // formulário. É o desenho que o CLAUDE.md escolhe — cobrar depois, com o
   // cadastro já feito, em vez de bloquear na hora e não ter cadastro nenhum.
+  //
+  // A lista muda aos 18: escola, série e responsável legal deixam de ser
+  // cobrados, porque o adulto responde por si e assina a própria ficha.
   const pendencias = completo
     ? (
         [
-          ["Telefone do responsável", completo.telefoneResponsavel],
+          [
+            menor ? "Telefone do responsável" : "Telefone de contato",
+            completo.telefoneResponsavel ?? completo.telefoneAluno,
+          ],
           ["Endereço", completo.endereco],
           ["RG", completo.rg],
           ["CPF", completo.cpf],
-          ["Escola", completo.escola],
-          ["Responsável legal", completo.responsavelTipo],
+          ...(menor
+            ? ([
+                ["Escola", completo.escola],
+                ["Série", completo.serie],
+                ["Responsável legal", completo.responsavelTipo],
+              ] as const)
+            : []),
         ] as const
       )
         .filter(([, valor]) => !valor)
@@ -181,16 +193,18 @@ export default async function AlunoPage({
       </Bloco>
 
       <Bloco
-        titulo="Família e responsável legal"
+        titulo={menor ? "Família e responsável legal" : "Filiação"}
         descricao={
-          completo
-            ? "O nome do responsável é lido do campo do pai ou da mãe, não copiado — corrigir um corrige o outro."
-            : undefined
+          !completo
+            ? undefined
+            : menor
+              ? "O nome do responsável é lido do campo do pai ou da mãe, não copiado — corrigir um corrige o outro."
+              : "Maior de idade responde por si e assina a própria ficha."
         }
       >
         <Dado rotulo="Nome do pai" valor={aluno.nomePai} />
         <Dado rotulo="Nome da mãe" valor={aluno.nomeMae} />
-        {completo ? (
+        {completo && menor ? (
           <Dado
             rotulo="Responsável legal"
             valor={
@@ -206,7 +220,7 @@ export default async function AlunoPage({
         <>
           <Bloco titulo="Contato">
             <Dado
-              rotulo="Telefone do responsável"
+              rotulo={menor ? "Telefone do responsável" : "Telefone de contato"}
               valor={completo.telefoneResponsavel}
             />
             <Dado rotulo="Telefone do aluno" valor={completo.telefoneAluno} />

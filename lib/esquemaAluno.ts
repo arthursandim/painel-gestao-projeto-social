@@ -23,6 +23,7 @@ import {
   ehUf,
   formatarCep,
   formatarCpf,
+  formatarTelefone,
   UFS,
 } from "@/lib/validacoes";
 
@@ -135,15 +136,26 @@ export const esquemaAluno = z
         .transform(formatarCep),
     ),
 
+    // Normalizado na gravação: todo telefone fica no banco como (96) 99123-4567.
+    // Sem isto conviveriam "96991234567", "96 99123-4567" e "(96)99123-4567", e
+    // a mesma pessoa pareceria três contatos diferentes numa busca futura.
     telefoneResponsavel: opcional(
-      z.string().trim().refine(ehTelefoneValido, {
-        error: "Telefone do responsável: informe com DDD.",
-      }),
+      z
+        .string()
+        .trim()
+        .refine(ehTelefoneValido, {
+          error: "Telefone do responsável: informe com DDD.",
+        })
+        .transform(formatarTelefone),
     ),
     telefoneAluno: opcional(
-      z.string().trim().refine(ehTelefoneValido, {
-        error: "Telefone do aluno: informe com DDD.",
-      }),
+      z
+        .string()
+        .trim()
+        .refine(ehTelefoneValido, {
+          error: "Telefone do aluno: informe com DDD.",
+        })
+        .transform(formatarTelefone),
     ),
     email: opcional(z.email({ error: "E-mail inválido." })),
 

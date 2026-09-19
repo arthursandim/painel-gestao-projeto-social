@@ -6,7 +6,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { exigirPapeis } from "@/lib/auth";
-import { diaParaData } from "@/lib/data";
+import { IDADE_MAIORIDADE } from "@/lib/avisosAluno";
+import { diaParaData, hojeNoProjeto, idadeEm } from "@/lib/data";
 import {
   camposDoForm,
   conferirEscala,
@@ -31,15 +32,40 @@ function primeiroErro(erro: z.ZodError): string {
   return erro.issues[0]?.message ?? "Dados inválidos.";
 }
 
-/** Dia civil vira Date de meia-noite UTC só aqui, na fronteira com o Prisma. */
-function paraBanco(dados: DadosAluno) {
+/**
+ * Dia civil vira Date de meia-noite UTC só aqui, na fronteira com o Prisma.
+ *
+ * O aluno maior de idade não tem os campos de responsável legal no formulário,
+ * e por isso eles saem do payload em vez de irem como nulos: **omitir preserva,
+ * mandar vazio apagaria**. A diferença aparece no aluno que foi menor e virou
+ * adulto — a referência que valeu naquele tempo continua gravada, e corrigir o
+ * telefone dele não a destrói de passagem.
+ */
+function paraBanco(dados: DadosAluno, maiorDeIdade: boolean) {
   const { nascimento, graduacaoData, rgDataEmissao, ...resto } = dados;
-  return {
-    ...resto,
+
+  const datas = {
     nascimento: diaParaData(nascimento),
     graduacaoData: graduacaoData ? diaParaData(graduacaoData) : null,
     rgDataEmissao: rgDataEmissao ? diaParaData(rgDataEmissao) : null,
   };
+
+  if (!maiorDeIdade) return { ...resto, ...datas };
+
+  return {
+    ...resto,
+    ...datas,
+    // `undefined` é o que o Prisma ignora: a coluna fica fora do UPDATE e
+    // mantém o valor que tem. `null` entraria no UPDATE e apagaria.
+    responsavelTipo: undefined,
+    responsavelNome: undefined,
+    responsavelParentesco: undefined,
+  };
+}
+
+/** O corte dos 18, que decide a forma do formulário e o que a ação grava. */
+function ehMaiorDeIdade(nascimentoIso: string): boolean {
+  return idadeEm(nascimentoIso, hojeNoProjeto()) >= IDADE_MAIORIDADE;
 }
 
 /**
@@ -208,7 +234,7 @@ export async function criarAluno(
     try {
       criado = await prisma.aluno.create({
         data: {
-          ...paraBanco(dados),
+          ...paraBanco(dados, ehMaiorDeIdade(dados.nascimento)),
           ...capacidade.autorizacao,
           matricula,
           criadoPorId: autor.id,
@@ -310,7 +336,7 @@ export async function atualizarAluno(
     await prisma.aluno.update({
       where: { id: atual.id },
       data: {
-        ...paraBanco(dados),
+        ...paraBanco(dados, ehMaiorDeIdade(dados.nascimento)),
         ...autorizacao,
         atualizadoPorId: autor.id,
       },

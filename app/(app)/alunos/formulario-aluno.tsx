@@ -7,9 +7,10 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
 import type { EstadoAluno } from "./acoes";
-import { avisosDoAluno } from "@/lib/avisosAluno";
+import { avisosDoAluno, IDADE_MAIORIDADE } from "@/lib/avisosAluno";
 import { ehDiaValido, idadeEm } from "@/lib/data";
 import { CAMPOS_ALUNO, OPCOES_UF } from "@/lib/esquemaAluno";
+import { mascaraTelefone } from "@/lib/validacoes";
 import {
   DESCRICAO_ESCALA,
   escalaDaGraduacao,
@@ -142,9 +143,30 @@ export function FormularioAluno({
   const [nomeMae, setNomeMae] = useState(valores.nomeMae);
   const [responsavelNome, setResponsavelNome] = useState(valores.responsavelNome);
 
+  // Controlados para a máscara agir a cada tecla. O valor que sai daqui já é o
+  // formato final, então o que a pessoa vê é o que vai para o banco.
+  const [telefoneResponsavel, setTelefoneResponsavel] = useState(
+    valores.telefoneResponsavel,
+  );
+  const [telefoneAluno, setTelefoneAluno] = useState(valores.telefoneAluno);
+
+  // Controlados porque alimentam a pendência de escola, que precisa aparecer e
+  // sumir enquanto a pessoa digita.
+  const [escola, setEscola] = useState(valores.escola);
+  const [serie, setSerie] = useState(valores.serie);
+
   const nascimentoValido = ehDiaValido(nascimento);
   const idade = nascimentoValido ? idadeEm(nascimento, hojeIso) : null;
   const escala = idade === null ? null : escalaPorIdade(idade);
+
+  /**
+   * O corte dos 18 — a terceira régua de idade, e a única que muda a *forma* do
+   * formulário em vez de só o conteúdo de uma lista.
+   *
+   * Sem data de nascimento, trata como menor: é a maioria dos alunos de um
+   * projeto social, e o bloco se ajusta sozinho assim que a data é digitada.
+   */
+  const menor = idade === null || idade < IDADE_MAIORIDADE;
 
   /**
    * A faixa que já estava gravada e não existe mais na escala de hoje.
@@ -199,6 +221,8 @@ export function FormularioAluno({
             graduacao: graduacao as Graduacao,
             turma: { codigo: turma.codigo, nome: turma.nome },
             responsavelTipo: responsavelTipo || null,
+            escola,
+            serie,
           },
           hojeIso,
         )
@@ -207,7 +231,13 @@ export function FormularioAluno({
   return (
     <form action={enviar} className="space-y-6">
       {alunoId ? <input type="hidden" name="id" value={alunoId} /> : null}
-      <input type="hidden" name="responsavelTipo" value={responsavelTipo} />
+
+      {/* Só o menor tem responsável legal. Para o adulto o campo não é enviado,
+          e a ação preserva o que estiver gravado em vez de apagar: mandar vazio
+          limparia uma referência que valeu enquanto ele era menor. */}
+      {menor ? (
+        <input type="hidden" name="responsavelTipo" value={responsavelTipo} />
+      ) : null}
       <input
         type="hidden"
         name="duplicidadeConfirmadaPara"
@@ -381,6 +411,29 @@ export function FormularioAluno({
           />
         </Campo>
 
+        {/* Peso e altura ficam aqui, e não numa seção própria: quem atualiza a
+            faixa é quem acabou de pesar e medir o aluno, na mesma conversa. */}
+        <Campo nome="peso" rotulo="Peso (kg)">
+          <Input
+            id="peso"
+            name="peso"
+            inputMode="decimal"
+            defaultValue={valores.peso}
+            placeholder="34,5"
+            className="h-11"
+          />
+        </Campo>
+        <Campo nome="altura" rotulo="Altura (m)">
+          <Input
+            id="altura"
+            name="altura"
+            inputMode="decimal"
+            defaultValue={valores.altura}
+            placeholder="1,42"
+            className="h-11"
+          />
+        </Campo>
+
         {avisoEscala ? (
           <div className="md:col-span-2">
             <Alert role="status">
@@ -392,9 +445,16 @@ export function FormularioAluno({
       </Secao>
 
       {/* --------------------------------------- família e responsável */}
+      {/* O bloco muda de forma aos 18. O adulto assina a própria ficha, então
+          "responsável legal" não quer dizer nada para ele — sobra a filiação,
+          que vale em qualquer idade e vai na ficha impressa. */}
       <Secao
-        titulo="Família e responsável legal"
-        descricao="Marcar o pai ou a mãe como responsável guarda apenas a referência: o nome é lido do campo correspondente, então corrigir o nome ali corrige o responsável junto."
+        titulo={menor ? "Família e responsável legal" : "Filiação"}
+        descricao={
+          menor
+            ? "Marcar o pai ou a mãe como responsável guarda apenas a referência: o nome é lido do campo correspondente, então corrigir o nome ali corrige o responsável junto."
+            : "Maior de idade responde por si e assina a própria ficha — não há responsável legal a informar."
+        }
       >
         <Campo nome="nomePai" rotulo="Nome do pai">
           <Input
@@ -404,16 +464,18 @@ export function FormularioAluno({
             onChange={(e) => setNomePai(e.target.value)}
             className="h-11"
           />
-          <label className="hover:bg-muted/50 mt-2 flex min-h-11 cursor-pointer items-center gap-3 rounded-md p-2">
-            <input
-              type="checkbox"
-              className="accent-primary size-4"
-              checked={ehResponsavel === "PAI"}
-              disabled={!nomePai.trim()}
-              onChange={(e) => setEhResponsavel(e.target.checked ? "PAI" : "")}
-            />
-            <span className="text-sm">É o responsável legal</span>
-          </label>
+          {menor ? (
+            <label className="hover:bg-muted/50 mt-2 flex min-h-11 cursor-pointer items-center gap-3 rounded-md p-2">
+              <input
+                type="checkbox"
+                className="accent-primary size-4"
+                checked={ehResponsavel === "PAI"}
+                disabled={!nomePai.trim()}
+                onChange={(e) => setEhResponsavel(e.target.checked ? "PAI" : "")}
+              />
+              <span className="text-sm">É o responsável legal</span>
+            </label>
+          ) : null}
         </Campo>
 
         <Campo nome="nomeMae" rotulo="Nome da mãe">
@@ -424,58 +486,71 @@ export function FormularioAluno({
             onChange={(e) => setNomeMae(e.target.value)}
             className="h-11"
           />
-          <label className="hover:bg-muted/50 mt-2 flex min-h-11 cursor-pointer items-center gap-3 rounded-md p-2">
-            <input
-              type="checkbox"
-              className="accent-primary size-4"
-              checked={ehResponsavel === "MAE"}
-              disabled={!nomeMae.trim()}
-              onChange={(e) => setEhResponsavel(e.target.checked ? "MAE" : "")}
-            />
-            <span className="text-sm">É o responsável legal</span>
-          </label>
+          {menor ? (
+            <label className="hover:bg-muted/50 mt-2 flex min-h-11 cursor-pointer items-center gap-3 rounded-md p-2">
+              <input
+                type="checkbox"
+                className="accent-primary size-4"
+                checked={ehResponsavel === "MAE"}
+                disabled={!nomeMae.trim()}
+                onChange={(e) => setEhResponsavel(e.target.checked ? "MAE" : "")}
+              />
+              <span className="text-sm">É o responsável legal</span>
+            </label>
+          ) : null}
         </Campo>
 
-        <Campo
-          nome="responsavelNome"
-          rotulo="Outro responsável legal"
-          dica={
-            ehResponsavel
-              ? `Bloqueado porque o responsável é ${ehResponsavel === "PAI" ? "o pai" : "a mãe"}. Desmarque acima para usar outra pessoa.`
-              : "Para avó, tio, guardião — quem não é o pai nem a mãe."
-          }
-        >
-          <Input
-            id="responsavelNome"
-            name="responsavelNome"
-            value={ehResponsavel ? "" : responsavelNome}
-            onChange={(e) => setResponsavelNome(e.target.value)}
-            disabled={Boolean(ehResponsavel)}
-            className="h-11"
-          />
-        </Campo>
+        {menor ? (
+          <>
+            <Campo
+              nome="responsavelNome"
+              rotulo="Outro responsável legal"
+              dica={
+                ehResponsavel
+                  ? `Bloqueado porque o responsável é ${ehResponsavel === "PAI" ? "o pai" : "a mãe"}. Desmarque acima para usar outra pessoa.`
+                  : "Para avó, tio, guardião — quem não é o pai nem a mãe."
+              }
+            >
+              <Input
+                id="responsavelNome"
+                name="responsavelNome"
+                value={ehResponsavel ? "" : responsavelNome}
+                onChange={(e) => setResponsavelNome(e.target.value)}
+                disabled={Boolean(ehResponsavel)}
+                className="h-11"
+              />
+            </Campo>
 
-        <Campo nome="responsavelParentesco" rotulo="Parentesco">
-          <Input
-            id="responsavelParentesco"
-            name="responsavelParentesco"
-            defaultValue={valores.responsavelParentesco}
-            disabled={Boolean(ehResponsavel)}
-            placeholder="Avó, tio, guardião…"
-            className="h-11"
-          />
-        </Campo>
+            <Campo nome="responsavelParentesco" rotulo="Parentesco">
+              <Input
+                id="responsavelParentesco"
+                name="responsavelParentesco"
+                defaultValue={valores.responsavelParentesco}
+                disabled={Boolean(ehResponsavel)}
+                placeholder="Avó, tio, guardião…"
+                className="h-11"
+              />
+            </Campo>
+          </>
+        ) : null}
       </Secao>
 
       {/* ------------------------------------------------------ contato */}
       <Secao titulo="Contato">
-        <Campo nome="telefoneResponsavel" rotulo="Telefone do responsável" dica="Com DDD.">
+        <Campo
+          nome="telefoneResponsavel"
+          rotulo={menor ? "Telefone do responsável" : "Telefone de contato"}
+          dica="Com DDD. A máscara é aplicada enquanto você digita."
+        >
           <Input
             id="telefoneResponsavel"
             name="telefoneResponsavel"
             type="tel"
             inputMode="tel"
-            defaultValue={valores.telefoneResponsavel}
+            value={telefoneResponsavel}
+            onChange={(e) =>
+              setTelefoneResponsavel(mascaraTelefone(e.target.value))
+            }
             placeholder="(96) 99123-4567"
             className="h-11"
           />
@@ -491,7 +566,9 @@ export function FormularioAluno({
             name="telefoneAluno"
             type="tel"
             inputMode="tel"
-            defaultValue={valores.telefoneAluno}
+            value={telefoneAluno}
+            onChange={(e) => setTelefoneAluno(mascaraTelefone(e.target.value))}
+            placeholder="(96) 99123-4567"
             className="h-11"
           />
         </Campo>
@@ -619,12 +696,20 @@ export function FormularioAluno({
       </Secao>
 
       {/* --------------------------------------------- escola e medidas */}
-      <Secao titulo="Escola e medidas">
+      <Secao
+        titulo="Escola"
+        descricao={
+          menor
+            ? "Esperados para menor de 18 anos. Em branco não impedem o cadastro, mas o aluno fica com pendência no painel."
+            : "Opcional para maior de idade."
+        }
+      >
         <Campo nome="escola" rotulo="Escola">
           <Input
             id="escola"
             name="escola"
-            defaultValue={valores.escola}
+            value={escola}
+            onChange={(e) => setEscola(e.target.value)}
             className="h-11"
           />
         </Campo>
@@ -632,27 +717,8 @@ export function FormularioAluno({
           <Input
             id="serie"
             name="serie"
-            defaultValue={valores.serie}
-            className="h-11"
-          />
-        </Campo>
-        <Campo nome="peso" rotulo="Peso (kg)">
-          <Input
-            id="peso"
-            name="peso"
-            inputMode="decimal"
-            defaultValue={valores.peso}
-            placeholder="34,5"
-            className="h-11"
-          />
-        </Campo>
-        <Campo nome="altura" rotulo="Altura (m)">
-          <Input
-            id="altura"
-            name="altura"
-            inputMode="decimal"
-            defaultValue={valores.altura}
-            placeholder="1,42"
+            value={serie}
+            onChange={(e) => setSerie(e.target.value)}
             className="h-11"
           />
         </Campo>

@@ -19,6 +19,7 @@ export type CodigoAviso =
   | "TURMA"
   | "ESCALA"
   | "RESPONSAVEL"
+  | "ESCOLA"
   | "FICHA_MAIORIDADE"
   | "CAPACIDADE";
 
@@ -40,9 +41,18 @@ export type AlunoParaAviso = {
   graduacao: Graduacao;
   turma: { codigo: string; nome: string };
   responsavelTipo?: ResponsavelTipo | null;
+  escola?: string | null;
+  serie?: string | null;
   acimaCapacidade?: boolean;
   autorizacaoAcimaPor?: { nome: string } | null;
   autorizacaoAcimaJustificativa?: string | null;
+  /**
+   * Preenchido a partir da tabela Documento, que só ganha tela na fase 5. Até
+   * lá ninguém passa este campo e o aviso de maioridade não aparece — o que é
+   * a resposta honesta: sem a lista de documentos, o app não sabe qual ficha
+   * está arquivada, e um aviso em todo aluno adulto seria ruído permanente.
+   */
+  temFichaMenorVigente?: boolean;
 };
 
 export function avisosDoAluno(
@@ -74,11 +84,12 @@ export function avisosDoAluno(
     });
   }
 
-  if (
-    idade < IDADE_MAIORIDADE &&
-    aluno.responsavelTipo !== undefined &&
-    !aluno.responsavelTipo
-  ) {
+  // Daqui para baixo, o corte dos 18 — a régua da maioridade, que não tem nada
+  // a ver com as duas de cima. Para o aluno adulto estes campos não são
+  // cobrados: ele assina a própria ficha e responde por si.
+  const menor = idade < IDADE_MAIORIDADE;
+
+  if (menor && aluno.responsavelTipo !== undefined && !aluno.responsavelTipo) {
     avisos.push({
       codigo: "RESPONSAVEL",
       texto:
@@ -86,14 +97,23 @@ export function avisosDoAluno(
     });
   }
 
-  // "Aluno que completou 18 anos com ficha de menor vigente" depende da tabela
-  // Documento, que só ganha tela na fase 5. Até lá o aviso é o de maioridade
-  // sem a parte que diz qual ficha está vigente.
-  if (idade >= IDADE_MAIORIDADE) {
+  // `escola !== undefined` distingue "está em branco" de "não veio na consulta":
+  // a visão reduzida do professor não traz escola nem série, e inventar a
+  // pendência com base num campo que ninguém leu seria mentir.
+  if (menor && aluno.escola !== undefined && (!aluno.escola || !aluno.serie)) {
+    avisos.push({
+      codigo: "ESCOLA",
+      texto: !aluno.escola
+        ? "Menor de idade sem escola informada."
+        : "Menor de idade sem a série informada.",
+    });
+  }
+
+  if (!menor && aluno.temFichaMenorVigente) {
     avisos.push({
       codigo: "FICHA_MAIORIDADE",
       texto:
-        "Completou 18 anos: a ficha a ser assinada passa a ser a de adulto. Confira qual está arquivada.",
+        "Completou 18 anos e a ficha de menor ainda é a vigente. A ficha a assinar passa a ser a de adulto.",
     });
   }
 
