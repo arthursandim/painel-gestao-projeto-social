@@ -17,11 +17,22 @@ import { interpretarRespostaViaCep, mascaraCep } from "../lib/cep";
 import { dataParaDia, diaParaData, idadeEm } from "../lib/data";
 import { conferirEscala } from "../lib/esquemaAluno";
 import {
+  TIPO_DOCUMENTO_DA_VARIANTE,
+  varianteDaFicha,
+  VERSAO_FICHA,
+} from "../lib/ficha";
+import {
   escalaDaGraduacao,
   escalaPorIdade,
   GRADUACOES_POR_ESCALA,
   ROTULO_GRADUACAO,
 } from "../lib/graduacao";
+import {
+  INTRODUCAO_TERMO_MENOR,
+  ITENS_TERMO_MENOR,
+  PARAGRAFOS_CESSAO,
+  PARAGRAFOS_TERMO_ADULTO,
+} from "../lib/textosFicha";
 import { formatarMatricula } from "../lib/matricula";
 import { idadeCombinaComTurma, TURMA_JOVENS_ADULTOS, TURMA_KIDS } from "../lib/turma";
 import {
@@ -557,6 +568,102 @@ checa(
   "nomes diferentes têm chaves diferentes",
   chaveDeNome("José da Silva") !== chaveDeNome("José da Silveira"),
 );
+
+// =====================================================================
+console.log("\nCorte da FICHA — aos 18 vira ficha de adulto");
+
+// A TERCEIRA régua de idade do projeto. As outras duas estão acima neste
+// arquivo, e o ponto destas asserções é que nenhuma serve para as outras:
+//
+//   12 → turma        16 → escala de graduação        18 → variante da ficha
+checa("17 anos e 11 meses é ficha de MENOR", varianteDaFicha("2008-10-20", "2026-09-20") === "MENOR");
+checa("véspera dos 18 ainda é MENOR", varianteDaFicha("2008-09-21", "2026-09-20") === "MENOR");
+checa("no dia dos 18 vira ADULTO", varianteDaFicha("2008-09-20", "2026-09-20") === "ADULTO");
+checa("no dia seguinte aos 18 é ADULTO", varianteDaFicha("2008-09-19", "2026-09-20") === "ADULTO");
+checa("criança de 8 anos é MENOR", varianteDaFicha("2018-01-10", "2026-09-20") === "MENOR");
+checa("adulto de 40 anos é ADULTO", varianteDaFicha("1986-01-10", "2026-09-20") === "ADULTO");
+
+// As três réguas medidas no MESMO aluno, que é onde a confusão nasce.
+const NASCIMENTO_16 = "2010-05-03"; // 16 anos em 2026-09-20
+checa(
+  "aos 16: escala já é adulta…",
+  escalaPorIdade(idadeEm(NASCIMENTO_16, "2026-09-20")) === "ADULTO",
+);
+checa(
+  "…a turma já é Jovens/Adultos…",
+  !idadeCombinaComTurma(idadeEm(NASCIMENTO_16, "2026-09-20"), TURMA_KIDS),
+);
+checa(
+  "…e a ficha ainda é de MENOR (as três réguas não coincidem)",
+  varianteDaFicha(NASCIMENTO_16, "2026-09-20") === "MENOR",
+);
+
+const NASCIMENTO_13 = "2013-05-03"; // 13 anos em 2026-09-20
+checa(
+  "aos 13: turma é Jovens/Adultos, escala ainda é Kids…",
+  !idadeCombinaComTurma(13, TURMA_KIDS) &&
+    escalaPorIdade(13) === "KIDS",
+);
+checa(
+  "…e a ficha é de MENOR",
+  varianteDaFicha(NASCIMENTO_13, "2026-09-20") === "MENOR",
+);
+
+// A variante aceita Date além de string, porque é assim que o valor chega do
+// Prisma. Se as duas formas divergissem, a ficha de um aluno mudaria conforme
+// o caminho por onde a data passou — erro silencioso clássico.
+checa(
+  "Date e string dão a mesma variante",
+  varianteDaFicha(diaParaData("2008-09-20"), "2026-09-20") ===
+    varianteDaFicha("2008-09-20", "2026-09-20"),
+);
+
+checa(
+  "cada variante aponta para o seu tipo de documento",
+  TIPO_DOCUMENTO_DA_VARIANTE.MENOR === "FICHA_MENOR" &&
+    TIPO_DOCUMENTO_DA_VARIANTE.ADULTO === "FICHA_ADULTO",
+);
+
+console.log("\nTextos da ficha — o que vai no papel assinado");
+
+// Os termos são o instrumento jurídico. Estas asserções não julgam o texto:
+// checam que ele continua inteiro. Um item apagado numa refatoração sairia do
+// papel sem ninguém notar, e o papel já estaria assinado.
+checa("o termo de menor tem os dez itens", ITENS_TERMO_MENOR.length === 10);
+checa(
+  "os dez itens estão numerados de 1 a 10, em ordem",
+  ITENS_TERMO_MENOR.every((item, i) => item.startsWith(`${i + 1}- `)),
+);
+checa("a cessão tem os nove parágrafos", PARAGRAFOS_CESSAO.length === 9);
+checa("o termo de adulto tem os três parágrafos", PARAGRAFOS_TERMO_ADULTO.length === 3);
+checa(
+  "nenhum texto da ficha está vazio",
+  [
+    ...ITENS_TERMO_MENOR,
+    ...PARAGRAFOS_CESSAO,
+    ...PARAGRAFOS_TERMO_ADULTO,
+    INTRODUCAO_TERMO_MENOR,
+  ].every((t) => t.trim().length > 30),
+);
+
+// A regra das três faltas, que o painel da fase 7 vai usar como default, está
+// escrita no termo que a família assina. Se o texto mudar, o default muda
+// junto — e é aqui que alguém descobre isso, não depois.
+checa(
+  "o termo assinado continua falando em 3 faltas consecutivas",
+  PARAGRAFOS_CESSAO.some((p) => p.includes("Não faltar mais de 3 vezes consecutivas")),
+);
+
+// A ficha leva só a marca do projeto. A Equipe Sul Tucujú não entra: seriam
+// duas gerações de documento assinado.
+checa(
+  "nenhum texto da ficha menciona a segunda marca",
+  ![...PARAGRAFOS_CESSAO, ...PARAGRAFOS_TERMO_ADULTO, ...ITENS_TERMO_MENOR]
+    .join(" ")
+    .includes("Tucujú"),
+);
+
+checa("a versão do template está declarada", /^v\d+$/.test(VERSAO_FICHA));
 
 console.log(
   falhas === 0

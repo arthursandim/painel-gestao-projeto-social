@@ -11,6 +11,7 @@
  */
 import { Papel } from "@prisma/client";
 
+import { podeImprimirFicha } from "../lib/ficha";
 import {
   MODULOS,
   podeAcessar,
@@ -19,6 +20,7 @@ import {
 } from "../lib/permissoes";
 import {
   CAMPOS_VEDADOS_AO_PROFESSOR,
+  podeVerDadosSensiveis,
   podeVerDocumentos,
   selectAlunoPara,
 } from "../lib/selecaoAluno";
@@ -165,6 +167,44 @@ checa(
   "professor + inscrições grava (união dos papéis)",
   podeEscreverAluno([Papel.PROFESSOR, Papel.INSCRICOES]),
 );
+
+console.log("\nFicha impressa — abrir /alunos não é poder imprimir a ficha");
+
+// A regra que a fase 4 acrescentou, e a que mais convida ao erro: a rota da
+// ficha fica sob /alunos, que o professor abre. Mas a ficha põe no papel RG,
+// CPF, telefone, endereço, escola e série — as quatro linhas "Não" da tabela
+// de visibilidade. Guardar a rota só com exigirAcesso("/alunos") entregaria
+// num PDF o que o seletor de campos recusa a entregar num JSON, e a falha
+// seria invisível: a página renderiza, ninguém vê erro nenhum.
+checa("professor abre /alunos", podeAcessar([Papel.PROFESSOR], "/alunos"));
+checa("…e não imprime a ficha", !podeImprimirFicha([Papel.PROFESSOR]));
+
+checa("inscrições imprime a ficha", podeImprimirFicha([Papel.INSCRICOES]));
+checa("admin imprime a ficha", podeImprimirFicha([Papel.ADMIN]));
+checa("inventário não imprime a ficha", !podeImprimirFicha([Papel.INVENTARIO]));
+checa("sem papel não imprime a ficha", !podeImprimirFicha([]));
+checa(
+  "professor + inscrições imprime (união dos papéis)",
+  podeImprimirFicha([Papel.PROFESSOR, Papel.INSCRICOES]),
+);
+
+// A ficha e a visão completa do aluno são a mesma decisão vista de dois
+// lados. Se um dia divergirem, alguém poderá imprimir o que não pode ler na
+// tela — ou o contrário. Amarrar as duas aqui torna a divergência uma falha
+// de script, não uma descoberta em produção.
+for (const papeis of [
+  [Papel.ADMIN],
+  [Papel.INSCRICOES],
+  [Papel.PROFESSOR],
+  [Papel.INVENTARIO],
+  [],
+  [Papel.PROFESSOR, Papel.INSCRICOES],
+]) {
+  checa(
+    `imprimir a ficha acompanha ver dados sensíveis (${papeis.join("+") || "sem papel"})`,
+    podeImprimirFicha(papeis) === podeVerDadosSensiveis(papeis),
+  );
+}
 
 console.log(
   falhas === 0

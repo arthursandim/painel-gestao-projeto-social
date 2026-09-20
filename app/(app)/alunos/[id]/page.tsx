@@ -1,5 +1,5 @@
 import { StatusAluno } from "@prisma/client";
-import { HeartPulse, Pencil } from "lucide-react";
+import { HeartPulse, Pencil, Printer } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -20,6 +20,7 @@ import {
 import { exigirAcesso } from "@/lib/auth";
 import { avisosDoAluno, IDADE_MAIORIDADE } from "@/lib/avisosAluno";
 import { dataParaDia, formatarDiaBr, hojeNoProjeto, idadeHoje } from "@/lib/data";
+import { podeImprimirFicha } from "@/lib/ficha";
 import { descreverGraduacao, ROTULO_ESCALA, escalaDaGraduacao } from "@/lib/graduacao";
 import { podeEscreverAluno } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
@@ -138,14 +139,27 @@ export default async function AlunoPage({
               {aluno.matricula}
             </p>
           </div>
-          {podeEditar ? (
-            <Button asChild className="min-h-11">
-              <Link href={`/alunos/${aluno.id}/editar`}>
-                <Pencil className="size-4" />
-                Editar
-              </Link>
-            </Button>
-          ) : null}
+          <div className="flex flex-wrap gap-2">
+            {/* A ficha imprime RG, CPF, telefone e endereço, então o botão
+                segue a mesma regra da rota: quem não vê os dados sensíveis na
+                tela também não os imprime. */}
+            {podeImprimirFicha(usuario.papeis) ? (
+              <Button asChild variant="outline" className="min-h-11">
+                <Link href={`/alunos/${aluno.id}/ficha`}>
+                  <Printer className="size-4" />
+                  Ficha para impressão
+                </Link>
+              </Button>
+            ) : null}
+            {podeEditar ? (
+              <Button asChild className="min-h-11">
+                <Link href={`/alunos/${aluno.id}/editar`}>
+                  <Pencil className="size-4" />
+                  Editar
+                </Link>
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
 

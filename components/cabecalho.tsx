@@ -28,7 +28,9 @@ export function Cabecalho({
     pathname === rota || pathname.startsWith(`${rota}/`);
 
   return (
-    <header className="bg-neutral-900 text-neutral-50">
+    // `print:hidden`: a barra do app não sai no papel. Importa na ficha do
+    // aluno, que é a única tela feita para imprimir, mas vale para todas.
+    <header className="bg-neutral-900 text-neutral-50 print:hidden">
       <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
         <Link href="/painel" className="shrink-0">
           <Marca />

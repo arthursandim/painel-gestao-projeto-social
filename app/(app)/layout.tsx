@@ -22,7 +22,11 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           titulo: m.titulo,
         }))}
       />
-      <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</div>
+      {/* Na impressão o container some: a ficha se mede em milímetros de A4 e
+          não pode herdar largura máxima nem respiro de tela. */}
+      <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 print:max-w-none print:p-0">
+        {children}
+      </div>
     </>
   );
 }

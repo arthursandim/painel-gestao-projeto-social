@@ -1,0 +1,280 @@
+/*
+ * A4 fiel ao modelo em docs/, sem biblioteca de PDF: HTML impresso pelo
+ * navegador.
+ *
+ * As medidas não foram estimadas. Saíram do PDF original, lidas caractere a
+ * caractere, e estão em pt porque o pt do CSS é o mesmo pt do PDF (1/72 pol).
+ * Números que valem para as seis páginas:
+ *
+ *   página          595,32 × 841,92 pt  =  210 × 297 mm (A4)
+ *   margem lateral  85,05 pt            =  30 mm
+ *   margem superior 70,9 pt             =  25 mm
+ *   largura útil    425,2 pt            =  150 mm
+ *   corpo           Calibri 11 pt, entrelinha 13,4 pt, 8 pt entre parágrafos
+ *
+ * O passo de 21,4 pt entre parágrafos do modelo é exatamente 13,4 + 8, e é o
+ * que faz as linhas caírem onde caem no papel original.
+ */
+
+@page {
+  size: A4;
+  margin: 0;
+}
+
+.f-folha {
+  box-sizing: border-box;
+  width: 210mm;
+  min-height: 296mm; /* 1 mm a menos que A4: evita a página fantasma em branco */
+
+  /*
+   * Sem padding inferior, e isto não é descuido.
+   *
+   * Com `min-height` de quase uma folha, o Chrome soma o padding de baixo por
+   * fora da altura mínima ao fragmentar para impressão: a folha passava de
+   * 297 mm e as duas últimas linhas de cada página caíam numa quarta folha,
+   * levando junto a legenda da assinatura. Medido, não suposto — com padding
+   * a impressão saía com 4 páginas, sem ele sai com 3.
+   *
+   * Nada encosta no rodapé mesmo assim: o conteúdo mais longo (página 1)
+   * termina a 275 mm do topo e o rodapé fica a 285 mm.
+   */
+  padding: 70.9pt 85.05pt 0;
+  position: relative;
+  background: #fff;
+  color: #000;
+
+  /* Carlito é métricamente compatível com Calibri e existe no Linux. */
+  font-family: Calibri, Carlito, "Segoe UI", sans-serif;
+  font-size: 11pt;
+  line-height: 13.4pt;
+  text-align: left;
+}
+
+.f-folha * {
+  box-sizing: border-box;
+}
+
+/* Quebra forçada entre as três páginas. A última não força, senão sai uma
+   quarta folha em branco. */
+.f-folha {
+  break-after: page;
+}
+.f-folha:last-of-type {
+  break-after: auto;
+}
+
+/* ------------------------------------------------------------- tipografia */
+
+.f-p {
+  margin: 0 0 8pt;
+}
+
+/* Parágrafo vazio do modelo: ocupa uma linha e não colapsa. */
+.f-vazia {
+  margin: 0 0 8pt;
+}
+
+.f-centro {
+  text-align: center;
+}
+
+.f-negrito {
+  font-weight: bold;
+}
+
+.f-justificado {
+  text-align: justify;
+}
+
+/* ------------------------------------------------------------- logotipo */
+
+/*
+ * Só a marca do projeto. A Equipe Sul Tucujú não entra na ficha impressa:
+ * acrescentá-la incrementaria VERSAO_FICHA e criaria duas gerações de
+ * documento assinado.
+ *
+ * O tamanho é o do glifo no modelo, não o da caixa da imagem — o PNG do PDF
+ * tem 256 × 287 px com sobra transparente embaixo, enquanto o do repositório é
+ * quadrado. Igualar a caixa deixaria a engrenagem maior que no papel atual.
+ */
+.f-logo {
+  display: block;
+  margin: 0 auto;
+}
+
+.f-logo--p1 {
+  width: 32.6mm;
+  height: 32.6mm;
+  margin-top: 8pt;
+  margin-bottom: 21.5pt;
+}
+
+.f-logo--p2 {
+  width: 27mm;
+  height: 27mm;
+  margin-bottom: 17.3pt;
+}
+
+.f-logo--p3 {
+  width: 25mm;
+  height: 25mm;
+  margin-bottom: 16.6pt;
+}
+
+/* ------------------------------------------------------------- campos */
+
+/*
+ * Cada linha a preencher tem a largura que tem no modelo, em milímetros
+ * medidos do PDF, e o valor do cadastro é impresso em cima dela.
+ *
+ * `min-width` e não `width`: campo vazio sai exatamente do tamanho do modelo —
+ * o CLAUDE.md exige que ele não colapse, porque é nele que se escreve à mão o
+ * que faltou — e campo cujo valor não caiba cresce e empurra o resto para a
+ * direita, invadindo a margem de 30 mm. Truncar seria pior: perderia dado sem
+ * ninguém ver.
+ */
+.f-campo {
+  display: inline-block;
+  min-width: var(--w);
+  padding: 0 1pt;
+  border-bottom: 0.75pt solid #000;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+
+/* A linha inteira não quebra: se um valor estourar, ele avança na margem em
+   vez de jogar o rótulo seguinte para a linha de baixo. */
+.f-linha {
+  margin: 0 0 8pt;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------- assinatura */
+
+.f-assinatura {
+  text-align: center;
+}
+
+.f-assinatura .f-campo {
+  border-bottom: 0.75pt solid #000;
+}
+
+/* ------------------------------------------------------------- rodapé */
+
+/*
+ * Versão da ficha, data de emissão e matrícula. Fica na margem inferior, fora
+ * do fluxo, para não deslocar uma única linha do modelo.
+ */
+.f-rodape {
+  position: absolute;
+  right: 85.05pt;
+  bottom: 12mm;
+  left: 85.05pt;
+  font-size: 7pt;
+  line-height: 9pt;
+  color: #555;
+  text-align: center;
+}
+
+/* ------------------------------------------------------------- página 3 */
+
+.f-p10 {
+  margin: 0 0 8pt;
+  font-size: 10pt;
+  line-height: 12.2pt;
+}
+
+/* Os dez itens do termo de menor são um bloco corrido no original: entrelinha
+   de 10,95 pt e nenhum espaço entre os itens. */
+.f-termo-menor {
+  font-size: 9pt;
+  line-height: 10.95pt;
+  text-align: justify;
+}
+
+.f-termo-menor p {
+  margin: 0;
+}
+
+.f-termo-adulto {
+  font-size: 12pt;
+  line-height: 14.6pt;
+  text-align: justify;
+}
+
+.f-termo-adulto p {
+  margin: 0;
+}
+
+.f-p12 {
+  margin: 0 0 9.2pt;
+  font-size: 12pt;
+  line-height: 14.6pt;
+}
+
+/* As cinco linhas de 9 pt e a de 10 pt que o original deixa em branco entre o
+   décimo item e a linha de assinatura. */
+.f-espaco-assinatura {
+  margin-top: 67pt;
+}
+
+/* ------------------------------------------------------------- tela */
+
+/*
+ * Na tela a ficha é uma prévia: fundo cinza, folhas com sombra. Nada disto
+ * chega ao papel.
+ *
+ * Abaixo de 210 mm de viewport a folha não cabe, e o CLAUDE.md proíbe rolagem
+ * horizontal. `zoom` reduz a prévia inteira mantendo as proporções — é o que
+ * permite conferir o layout no celular sem bloquear a tela por tipo de
+ * aparelho. O `overflow-x` do container é só rede de segurança para navegador
+ * sem `zoom`: a rolagem fica dentro da prévia, nunca na página.
+ */
+.f-preview {
+  overflow-x: auto;
+  background: #e5e5e5;
+  padding: 16px 0;
+}
+
+.f-preview .f-folha {
+  margin: 0 auto 16px;
+  box-shadow: 0 1px 6px rgb(0 0 0 / 25%);
+}
+
+@media screen and (max-width: 900px) {
+  .f-preview {
+    zoom: 0.78;
+  }
+}
+
+@media screen and (max-width: 760px) {
+  .f-preview {
+    zoom: 0.6;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .f-preview {
+    zoom: 0.44;
+  }
+}
+
+@media screen and (max-width: 420px) {
+  .f-preview {
+    zoom: 0.35;
+  }
+}
+
+@media print {
+  .f-preview {
+    zoom: 1;
+    overflow: visible;
+    background: none;
+    padding: 0;
+  }
+
+  .f-preview .f-folha {
+    margin: 0;
+    box-shadow: none;
+  }
+}
