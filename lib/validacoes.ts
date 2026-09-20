@@ -57,6 +57,26 @@ export function formatarCpf(valor: string): string {
   return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
 }
 
+/**
+ * Máscara progressiva, para aplicar a cada tecla.
+ *
+ * Mesma divisão de trabalho de `mascaraTelefone`: `formatarCpf` só age no
+ * número completo, e esta aceita um CPF pela metade, devolvendo o que couber.
+ *
+ * Os pontos e o traço aparecem conforme os dígitos chegam, nunca antes: um
+ * campo que já abre com "..-" faz quem digita achar que precisa preencher os
+ * separadores também, e aí chega ".123.456" no lugar do documento. Colar um
+ * CPF já formatado também funciona, porque tudo que não é dígito é descartado
+ * antes.
+ */
+export function mascaraCpf(valor: string): string {
+  const d = somenteDigitos(valor).slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+
 // ------------------------------------------------------------------- CEP
 
 export function ehCepValido(valor: string): boolean {

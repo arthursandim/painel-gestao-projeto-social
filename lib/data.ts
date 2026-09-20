@@ -11,11 +11,18 @@
 // fronteira com o Prisma, sempre em meia-noite UTC.
 
 /**
- * Amapá. O servidor roda em UTC na Vercel, então "hoje" precisa ser calculado
- * no fuso de quem usa o app — senão, entre 21h e a meia-noite local, o sistema
- * já está no dia seguinte e um aniversário é contado um dia antes.
+ * Santa Catarina. O servidor roda em UTC na Vercel, então "hoje" precisa ser
+ * calculado no fuso de quem usa o app — senão, entre 21h e a meia-noite local,
+ * o sistema já está no dia seguinte e um aniversário é contado um dia antes.
+ *
+ * Era `America/Belem` até a fase 4, por uma suposição errada sobre onde o
+ * projeto fica. Os dois são UTC−3 desde que o horário de verão acabou, em
+ * 2019, então nada quebrou — mas `America/Belem` nunca teve horário de verão e
+ * `America/Sao_Paulo` carrega as regras. Se o horário de verão voltar, o fuso
+ * errado faria `hojeNoProjeto()` devolver o dia seguinte durante uma hora por
+ * noite, e essa hora cairia dentro do horário de treino.
  */
-export const FUSO_PROJETO = "America/Belem";
+export const FUSO_PROJETO = "America/Sao_Paulo";
 
 // en-CA formata como AAAA-MM-DD, que é exatamente o formato ISO de dia civil.
 const FORMATADOR_ISO = new Intl.DateTimeFormat("en-CA", {

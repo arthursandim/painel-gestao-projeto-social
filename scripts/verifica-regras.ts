@@ -15,7 +15,7 @@ import { Graduacao, ResponsavelTipo } from "@prisma/client";
 import { avisosDoAluno } from "../lib/avisosAluno";
 import { interpretarRespostaViaCep, mascaraCep } from "../lib/cep";
 import { dataParaDia, diaParaData, idadeEm } from "../lib/data";
-import { conferirEscala } from "../lib/esquemaAluno";
+import { conferirEscala, esquemaStatusAluno } from "../lib/esquemaAluno";
 import {
   TIPO_DOCUMENTO_DA_VARIANTE,
   varianteDaFicha,
@@ -41,6 +41,7 @@ import {
   ehCpfValido,
   ehTelefoneValido,
   formatarTelefone,
+  mascaraCpf,
   mascaraTelefone,
 } from "../lib/validacoes";
 
@@ -480,35 +481,35 @@ console.log("\nResposta da ViaCEP");
 // não percebe — daí este bloco existir sem tocar na rede.
 // Corpo copiado de uma resposta real de 68900-060, campos e tudo.
 const encontrado = interpretarRespostaViaCep({
-  cep: "68900-060",
-  logradouro: "Avenida Mendonça Furtado",
+  cep: "88010-400",
+  logradouro: "Rua Felipe Schmidt",
   complemento: "até 2069/2070",
   unidade: "",
   bairro: "Central",
-  localidade: "Macapá",
-  uf: "AP",
-  estado: "Amapá",
-  regiao: "Norte",
-  ibge: "1600303",
-  ddd: "96",
+  localidade: "Florianópolis",
+  uf: "SC",
+  estado: "Santa Catarina",
+  regiao: "Sul",
+  ibge: "4205407",
+  ddd: "48",
 });
 checa("CEP válido é aceito", encontrado.ok);
 checa(
   "localidade vira cidade",
-  encontrado.ok && encontrado.endereco.cidade === "Macapá",
+  encontrado.ok && encontrado.endereco.cidade === "Florianópolis",
 );
-// A ViaCEP manda `uf: "AP"` e `estado: "Amapá"` na mesma resposta, e o nosso
-// campo se chama "estado". Ler o campo de nome igual gravaria "Amapá" numa
-// coluna Char(2) — o banco truncaria para "Am" ou recusaria, dependendo do
+// A ViaCEP manda `uf: "SC"` e `estado: "Santa Catarina"` na mesma resposta, e o nosso
+// campo se chama "estado". Ler o campo de nome igual gravaria "Santa Catarina" numa
+// coluna Char(2) — o banco truncaria para "Sa" ou recusaria, dependendo do
 // humor, e ninguém ligaria uma coisa à outra.
 checa(
   'o estado vem de "uf", não do campo "estado" da ViaCEP',
-  encontrado.ok && encontrado.endereco.estado === "AP",
+  encontrado.ok && encontrado.endereco.estado === "SC",
 );
 checa(
   "logradouro e bairro vêm junto",
   encontrado.ok &&
-    encontrado.endereco.logradouro === "Avenida Mendonça Furtado" &&
+    encontrado.endereco.logradouro === "Rua Felipe Schmidt" &&
     encontrado.endereco.bairro === "Central",
 );
 
@@ -535,11 +536,11 @@ checa("null não quebra", interpretarRespostaViaCep(null).ok === false);
 // CEP de rua inteira não traz logradouro, e isso é resultado bom: cidade e UF
 // valem, e a pessoa completa a rua à mão.
 const ruaInteira = interpretarRespostaViaCep({
-  cep: "68900-000",
+  cep: "88010-000",
   logradouro: "",
   bairro: "",
-  localidade: "Macapá",
-  uf: "AP",
+  localidade: "Florianópolis",
+  uf: "SC",
 });
 checa("CEP de cidade inteira ainda preenche cidade e UF", ruaInteira.ok);
 checa(
@@ -664,6 +665,77 @@ checa(
 );
 
 checa("a versão do template está declarada", /^v\d+$/.test(VERSAO_FICHA));
+
+// =====================================================================
+console.log("\nMáscara de CPF");
+
+for (const [digitado, esperado] of [
+  ["", ""],
+  ["1", "1"],
+  ["123", "123"],
+  ["1234", "123.4"],
+  ["123456", "123.456"],
+  ["1234567", "123.456.7"],
+  ["123456789", "123.456.789"],
+  ["1234567890", "123.456.789-0"],
+  ["12345678909", "123.456.789-09"],
+  // Colar um CPF já formatado não pode duplicar pontuação.
+  ["123.456.789-09", "123.456.789-09"],
+  // Nem aceitar mais que onze dígitos.
+  ["12345678909999", "123.456.789-09"],
+  // Letra digitada por engano é descartada, não trava o campo.
+  ["123a456", "123.456"],
+] as const) {
+  checa(`máscara de "${digitado}" é "${esperado}"`, mascaraCpf(digitado) === esperado);
+}
+
+// A máscara formata, não valida: quem reprova o dígito verificador é
+// ehCpfValido. Sem este par, uma máscara que deixasse passar qualquer coisa
+// pareceria correta.
+checa("a máscara não valida o dígito verificador", mascaraCpf("111.111.111-11") === "111.111.111-11");
+checa("…e o validador reprova o mesmo valor", !ehCpfValido("111.111.111-11"));
+
+// =====================================================================
+console.log("\nDesligamento e reativação — o campo que não existe na tela");
+
+// O bug da fase 4: `FormData.get()` devolve `null` para campo ausente no HTML,
+// e o motivo só é renderizado no desligamento. Reativar quebrava com
+// "expected string, received null" — numa tela sem campo nenhum para corrigir.
+const ID = "e466373d-b19e-4939-bab0-a4b4671f0888";
+
+const reativacao = esquemaStatusAluno.safeParse({ id: ID, motivo: null });
+checa("reativação passa sem o campo de motivo", reativacao.success);
+checa(
+  "…e o motivo chega como null",
+  reativacao.success && reativacao.data.motivo === null,
+);
+
+checa(
+  "campo ausente de verdade (undefined) também passa",
+  esquemaStatusAluno.safeParse({ id: ID }).success,
+);
+checa(
+  "textarea em branco vira null, não string vazia",
+  (() => {
+    const r = esquemaStatusAluno.safeParse({ id: ID, motivo: "   " });
+    return r.success && r.data.motivo === null;
+  })(),
+);
+
+// Controle negativo: o esquema não virou um passa-tudo.
+const desligamento = esquemaStatusAluno.safeParse({
+  id: ID,
+  motivo: "Mudou de cidade",
+});
+checa(
+  "desligamento preserva o motivo escrito",
+  desligamento.success && desligamento.data.motivo === "Mudou de cidade",
+);
+checa("id que não é uuid é recusado", !esquemaStatusAluno.safeParse({ id: "1", motivo: null }).success);
+checa(
+  "motivo acima de 300 caracteres é recusado",
+  !esquemaStatusAluno.safeParse({ id: ID, motivo: "x".repeat(301) }).success,
+);
 
 console.log(
   falhas === 0

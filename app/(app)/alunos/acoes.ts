@@ -12,6 +12,7 @@ import {
   camposDoForm,
   conferirEscala,
   esquemaAluno,
+  esquemaStatusAluno,
   type DadosAluno,
 } from "@/lib/esquemaAluno";
 import { campoDuplicado, proximaMatricula } from "@/lib/matricula";
@@ -355,15 +356,6 @@ export async function atualizarAluno(
 
 // ------------------------------------------------------------ desligamento
 
-const esquemaStatus = z.object({
-  id: z.uuid(),
-  motivo: z
-    .string()
-    .trim()
-    .max(300)
-    .optional()
-    .transform((v) => v || null),
-});
 
 /**
  * Desliga ou reativa. Nada é apagado: é o status que muda, e a linha continua
@@ -380,7 +372,7 @@ export async function alternarStatusAluno(
 ): Promise<EstadoAluno> {
   const autor = await exigirPapeis(PAPEIS_ESCRITA_ALUNO);
 
-  const analise = esquemaStatus.safeParse({
+  const analise = esquemaStatusAluno.safeParse({
     id: form.get("id"),
     motivo: form.get("motivo"),
   });

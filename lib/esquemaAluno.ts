@@ -53,6 +53,23 @@ function opcional<S extends z.ZodType>(esquema: S) {
 
 const texto = (max: number) => opcional(z.string().trim().min(1).max(max));
 
+/**
+ * Desligamento e reativação.
+ *
+ * Mora aqui, junto dos outros esquemas, e não solto na Server Action. Foi
+ * exatamente por estar solto que ele passou a usar `.optional()` do Zod cru em
+ * vez do `opcional` acima — e `.optional()` aceita `undefined`, não `null`.
+ *
+ * `FormData.get()` devolve `null` para campo que não existe no HTML, e o campo
+ * de motivo só é renderizado no desligamento. Reativar um aluno quebrava com
+ * "expected string, received null", numa tela em que nenhum campo estava
+ * errado: não havia campo nenhum.
+ */
+export const esquemaStatusAluno = z.object({
+  id: z.uuid(),
+  motivo: texto(300),
+});
+
 const dia = (rotulo: string) =>
   z
     .string()

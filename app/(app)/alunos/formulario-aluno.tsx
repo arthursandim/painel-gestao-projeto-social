@@ -12,7 +12,7 @@ import { consultarCep, mascaraCep, RECADO_FALHA } from "@/lib/cep";
 import { ehDiaValido, idadeEm } from "@/lib/data";
 import { CAMPOS_ALUNO, OPCOES_UF } from "@/lib/esquemaAluno";
 import { ROTULO_TIPO_SANGUINEO, TIPOS_SANGUINEOS } from "@/lib/saude";
-import { mascaraTelefone, somenteDigitos } from "@/lib/validacoes";
+import { mascaraCpf, mascaraTelefone, somenteDigitos } from "@/lib/validacoes";
 import {
   DESCRICAO_ESCALA,
   escalaDaGraduacao,
@@ -151,6 +151,7 @@ export function FormularioAluno({
     valores.telefoneResponsavel,
   );
   const [telefoneAluno, setTelefoneAluno] = useState(valores.telefoneAluno);
+  const [cpf, setCpf] = useState(valores.cpf);
 
   // Controlados porque alimentam a pendência de escola, que precisa aparecer e
   // sumir enquanto a pessoa digita.
@@ -834,12 +835,17 @@ export function FormularioAluno({
             className="h-11"
           />
         </Campo>
-        <Campo nome="cpf" rotulo="CPF" dica="Conferido pelo dígito verificador.">
+        <Campo
+          nome="cpf"
+          rotulo="CPF"
+          dica="Conferido pelo dígito verificador. A máscara é aplicada enquanto você digita."
+        >
           <Input
             id="cpf"
             name="cpf"
             inputMode="numeric"
-            defaultValue={valores.cpf}
+            value={cpf}
+            onChange={(e) => setCpf(mascaraCpf(e.target.value))}
             placeholder="000.000.000-00"
             className="h-11"
           />
