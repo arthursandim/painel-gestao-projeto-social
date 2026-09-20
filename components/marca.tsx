@@ -23,14 +23,18 @@ export function Marca({
 
   return (
     <div className={cn("flex items-center gap-3", className)}>
+      {/* `width`/`height` são as dimensões reais do arquivo, não o tamanho na
+          tela — quem dimensiona é o CSS, preservando a proporção. O logo da
+          equipe tem 256×259, então forçá-lo em quadrado o esticava 1% e fazia
+          o Next avisar a cada render. */}
       <div className="flex items-center gap-2">
         <Chip lado={lado}>
           <Image
             src="/logo-projeto-256.png"
             alt="Projeto Social Engenho Cidadão"
-            width={lado}
-            height={lado}
-            className="object-contain"
+            width={256}
+            height={256}
+            className="h-auto max-h-full w-auto max-w-full object-contain"
             priority
           />
         </Chip>
@@ -38,9 +42,9 @@ export function Marca({
           <Image
             src="/logo-equipe-256.png"
             alt="Equipe Sul Tucujú"
-            width={lado}
-            height={lado}
-            className="object-contain"
+            width={256}
+            height={259}
+            className="h-auto max-h-full w-auto max-w-full object-contain"
             priority
           />
         </Chip>
