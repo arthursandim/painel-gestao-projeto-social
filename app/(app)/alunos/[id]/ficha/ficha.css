@@ -149,6 +149,33 @@
   white-space: nowrap;
 }
 
+/* --------------------------------------------------- rótulo e exemplo */
+
+/*
+ * Quem preenche o local e a data é a família, no balcão, sem ninguém do
+ * projeto ao lado explicando campo a campo. O rótulo diz o que é a linha; o
+ * exemplo diz o formato. Sem os dois, o original devolvia "20/09" no campo da
+ * cidade — e o papel já estava assinado.
+ *
+ * O cinza é #444 e não mais claro: a ficha é fotocopiada e digitalizada, e
+ * cinza claro some nas duas.
+ */
+.f-rotulo-campo {
+  margin: 0 0 1pt;
+  font-size: 9pt;
+  line-height: 11pt;
+  text-align: center;
+}
+
+.f-exemplo {
+  margin: 1pt 0 8pt;
+  font-size: 8pt;
+  line-height: 10pt;
+  font-style: italic;
+  color: #444;
+  text-align: center;
+}
+
 /* ------------------------------------------------------------- assinatura */
 
 .f-assinatura {
@@ -159,22 +186,20 @@
   border-bottom: 0.75pt solid #000;
 }
 
-/* ------------------------------------------------------------- rodapé */
-
 /*
- * Versão da ficha, data de emissão e matrícula. Fica na margem inferior, fora
- * do fluxo, para não deslocar uma única linha do modelo.
+ * Não há rodapé impresso.
+ *
+ * O CLAUDE.md pedia versão, data de emissão e matrícula no pé de cada página.
+ * O desenvolvedor removeu por decisão expressa, e a seção "Ficha impressa" do
+ * documento foi corrigida no mesmo commit — especificação que descreve um
+ * código que não existe mais engana a próxima fase.
+ *
+ * A rastreabilidade do template não some junto: `VERSAO_FICHA` continua em
+ * lib/ficha.ts, aparece na tela antes de imprimir e será gravada na coluna
+ * `Documento.versaoFicha` quando a fase 5 arquivar a ficha assinada. O que se
+ * perde é a marca no papel — se uma ficha for digitalizada fora do app, nada
+ * nela diz qual layout foi assinado.
  */
-.f-rodape {
-  position: absolute;
-  right: 85.05pt;
-  bottom: 12mm;
-  left: 85.05pt;
-  font-size: 7pt;
-  line-height: 9pt;
-  color: #555;
-  text-align: center;
-}
 
 /* ------------------------------------------------------------- página 3 */
 

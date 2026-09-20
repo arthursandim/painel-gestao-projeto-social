@@ -63,8 +63,6 @@ export default async function FichaPage({ params }: PageProps<"/alunos/[id]/fich
 
   const dados: DadosFicha = {
     variante,
-    matricula: aluno.matricula,
-    emitidaEm: formatarDiaBr(hoje),
 
     nome: aluno.nome,
     nascimento: formatarDiaBr(aluno.nascimento),

@@ -23,7 +23,7 @@ import {
   TITULO_TERMO_ADULTO,
   TITULO_TERMO_MENOR,
 } from "@/lib/textosFicha";
-import { QUEM_ASSINA, VERSAO_FICHA, type VarianteFicha } from "@/lib/ficha";
+import { QUEM_ASSINA, type VarianteFicha } from "@/lib/ficha";
 
 /**
  * Tudo já em texto pronto para o papel. String vazia significa "não preenchido"
@@ -32,8 +32,6 @@ import { QUEM_ASSINA, VERSAO_FICHA, type VarianteFicha } from "@/lib/ficha";
  */
 export type DadosFicha = {
   variante: VarianteFicha;
-  matricula: string;
-  emitidaEm: string;
 
   nome: string;
   nascimento: string;
@@ -92,19 +90,32 @@ function Logo({ classe }: { classe: string }) {
 }
 
 /**
- * Local e data da assinatura, como no modelo.
+ * Local e data da assinatura.
  *
- * Tudo em branco, inclusive a UF: a decisão foi não fixar localidade nenhuma —
- * o "-SC" do modelo original não corresponde ao projeto. A data também fica em
- * branco porque a assinatura acontece quando a família vem, não quando alguém
- * aperta imprimir; a data de emissão está no rodapé.
+ * Diverge do modelo de propósito, a pedido do desenvolvedor. O original traz
+ * `__________________-SC, ___/______/____`: sem rótulo, com a UF num campo de
+ * duas letras separado por hífen e sem dizer a quem preenche o que vai ali.
+ *
+ * No lugar, a forma usual de documento assinado no Brasil —
+ * "Florianópolis/SC, 20 de setembro de 2026" —, com rótulo e um exemplo. O
+ * exemplo existe porque quem preenche é a família, na hora, sem ninguém do
+ * projeto explicando campo a campo.
+ *
+ * Os campos saem em branco, inclusive a localidade: nenhuma cidade ou UF é
+ * fixada no impresso. A data também — a assinatura acontece quando a família
+ * vem, não quando alguém aperta imprimir.
  */
 function LocalEData() {
   return (
-    <p className="f-linha f-centro">
-      <Campo mm={34.8} />-<Campo mm={6} />, <Campo mm={5.8} />/
-      <Campo mm={11.6} />/<Campo mm={7.7} />
-    </p>
+    <>
+      <p className="f-linha f-centro">
+        <Campo mm={45} />, <Campo mm={8} /> de <Campo mm={28} /> de{" "}
+        <Campo mm={13} />
+      </p>
+      <p className="f-exemplo">
+        Local e data — ex.: Florianópolis/SC, 20 de setembro de 2026
+      </p>
+    </>
   );
 }
 
@@ -116,14 +127,6 @@ function Assinatura({ variante }: { variante: VarianteFicha }) {
       </p>
       <p className="f-p f-centro">{QUEM_ASSINA[variante]}</p>
     </>
-  );
-}
-
-function Rodape({ dados }: { dados: DadosFicha }) {
-  return (
-    <p className="f-rodape">
-      Ficha {VERSAO_FICHA} · emitida em {dados.emitidaEm} · {dados.matricula}
-    </p>
   );
 }
 
@@ -216,11 +219,12 @@ export function PaginaCadastro({ dados }: { dados: DadosFicha }) {
         {"   "}ALTURA: <Campo mm={21.3}>{dados.altura}</Campo>
       </p>
 
-      <p className="f-vazia">&nbsp;</p>
+      {/* O modelo tem uma linha em branco aqui. Ela saiu porque o bloco de
+          local e data passou a ocupar duas linhas — campos mais a legenda com
+          o exemplo. Sem essa troca, a página 1 terminaria 8 mm dentro da
+          margem inferior de 25 mm. */}
       <LocalEData />
       <Assinatura variante={dados.variante} />
-
-      <Rodape dados={dados} />
     </section>
   );
 }
@@ -242,8 +246,6 @@ export function PaginaCessao({ dados }: { dados: DadosFicha }) {
 
       <LocalEData />
       <Assinatura variante={dados.variante} />
-
-      <Rodape dados={dados} />
     </section>
   );
 }
@@ -252,11 +254,7 @@ export function PaginaCessao({ dados }: { dados: DadosFicha }) {
 
 /** A única página que muda de verdade entre as variantes. */
 export function PaginaTermo({ dados }: { dados: DadosFicha }) {
-  return dados.variante === "MENOR" ? (
-    <TermoMenor dados={dados} />
-  ) : (
-    <TermoAdulto dados={dados} />
-  );
+  return dados.variante === "MENOR" ? <TermoMenor dados={dados} /> : <TermoAdulto />;
 }
 
 function TermoMenor({ dados }: { dados: DadosFicha }) {
@@ -285,20 +283,18 @@ function TermoMenor({ dados }: { dados: DadosFicha }) {
         </p>
         <p className="f-p12 f-centro">{ASSINATURA_TERMO_MENOR}</p>
       </div>
-
-      <Rodape dados={dados} />
     </section>
   );
 }
 
-function TermoAdulto({ dados }: { dados: DadosFicha }) {
+/** Não recebe dados: esta página é só texto fixo e linhas de assinatura. */
+function TermoAdulto() {
   return (
     <section className="f-folha">
       {/* O modelo de adulto não traz logotipo nesta página. Entra por decisão
           expressa do desenvolvedor, que fez valer a regra do CLAUDE.md —
           "logotipo no cabeçalho de todas as páginas" — sobre a fidelidade ao
-          PDF atual. É a única divergência deliberada entre as seis páginas e o
-          modelo. */}
+          PDF atual. */}
       <Logo classe="f-logo--p3" />
       <p className="f-p12 f-centro f-negrito">{TITULO_TERMO_ADULTO}</p>
 
@@ -318,8 +314,6 @@ function TermoAdulto({ dados }: { dados: DadosFicha }) {
         <Campo mm={83.2} />
       </p>
       <p className="f-p12 f-centro">{ASSINATURA_TERMO_ADULTO}</p>
-
-      <Rodape dados={dados} />
     </section>
   );
 }

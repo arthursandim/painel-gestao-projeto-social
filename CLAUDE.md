@@ -259,14 +259,17 @@ Variante escolhida **automaticamente pela data de nascimento**. Sem escolha manu
 Página HTML em A4 com `@media print`, impressa pelo navegador. **Sem biblioteca de PDF.** Textos dos termos em constantes no código, nunca no banco.
 
 - Rota: `/alunos/[id]/ficha`
-- Logotipo no cabeçalho de todas as páginas
+- Logotipo no cabeçalho de todas as páginas — inclusive na página 3 da variante adulta, que no modelo em `docs/` não tem
 - Campo vazio imprime como linha em branco do mesmo tamanho
 - Quebra de página forçada entre as três
-- Rodapé discreto: versão da ficha, data de emissão, matrícula
+- **Sem rodapé impresso.** A ficha sai só com o que vai ser assinado
+- Local e data levam rótulo e um exemplo de preenchimento, em vez do `__________-SC, ___/___/___` do modelo. Quem preenche é a família, no balcão, sem ninguém explicando campo a campo
 
 ### Versionamento do template
 
-Constante `VERSAO_FICHA` (começa em `v1`), impressa no rodapé e **gravada no registro do documento**. Sem isso, quando a ficha mudar vão conviver dois layouts sem nada dizer qual é qual — e é irrecuperável depois.
+Constante `VERSAO_FICHA` (começa em `v1`), **gravada no registro do documento** e mostrada na tela antes de imprimir. Sem isso, quando a ficha mudar vão conviver dois layouts sem nada dizer qual é qual — e é irrecuperável depois.
+
+A versão **não** é impressa no papel: decisão de quem toca o projeto, tomada na fase 4. O risco que fica é a ficha digitalizada fora do app, cujo papel não diz qual layout foi assinado. Quem arquivar pelo app continua rastreado pela coluna `Documento.versaoFicha`.
 
 Regra: mudou texto de termo ou campo impresso → incrementa a versão. Ajuste visual não conta.
 
