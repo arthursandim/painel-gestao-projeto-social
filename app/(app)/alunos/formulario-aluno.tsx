@@ -23,6 +23,7 @@ import {
   ROTULO_ESCALA,
   ROTULO_GRADUACAO,
 } from "@/lib/graduacao";
+import { IDADE_JOVENS_ADULTOS, turmaEsperada } from "@/lib/turma";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -133,6 +134,7 @@ export function FormularioAluno({
   const [graduacao, setGraduacao] = useState(valores.graduacao);
   const [turmaId, setTurmaId] = useState(valores.turmaId || turmas[0]?.id || "");
   const [avisoEscala, setAvisoEscala] = useState("");
+  const [avisoTurma, setAvisoTurma] = useState("");
 
   const [ehResponsavel, setEhResponsavel] = useState<"" | "PAI" | "MAE">(
     valores.responsavelTipo === ResponsavelTipo.PAI
@@ -234,11 +236,50 @@ export function FormularioAluno({
     return escalaDaGraduacao(gravada) === escala ? null : gravada;
   }, [valores.graduacao, escala]);
 
+  /**
+   * A turma que a idade indica.
+   *
+   * Corte dos 12, que é OUTRA régua: não confundir com o dos 16, logo acima,
+   * que decide a escala da faixa. Um aluno de 13 anos vai para Jovens/Adultos
+   * e continua com faixa kids.
+   */
+  function turmaParaIdade(idadeEmAnos: number) {
+    const codigo = turmaEsperada(idadeEmAnos);
+    return turmas.find((t) => t.codigo === codigo) ?? null;
+  }
+
   function aoMudarNascimento(novo: string) {
     setNascimento(novo);
-    if (!graduacao || !ehDiaValido(novo)) return;
+    if (!ehDiaValido(novo)) return;
 
-    const novaEscala = escalaPorIdade(idadeEm(novo, hojeIso));
+    const novaIdade = idadeEm(novo, hojeIso);
+
+    // A turma segue a data de nascimento, como a escala da faixa. Diferença
+    // que importa: a escala oposta *some* da lista, e a turma não — o
+    // CLAUDE.md manda que idade incompatível com a turma seja alerta, nunca
+    // bloqueio. Aqui o campo é preenchido e continua livre para trocar; quem
+    // decide é quem cadastra.
+    //
+    // Só age quando a data muda. Abrir a edição de um aluno de 13 anos que
+    // está em Kids não mexe em nada: essa é uma situação que o painel sinaliza
+    // e que uma pessoa resolve, não algo que uma edição de telefone corrige de
+    // passagem.
+    const sugerida = turmaParaIdade(novaIdade);
+    if (sugerida && sugerida.id !== turmaId) {
+      const anterior = turmas.find((t) => t.id === turmaId);
+      setTurmaId(sugerida.id);
+      setAvisoTurma(
+        anterior
+          ? `Com ${novaIdade} anos a turma é ${sugerida.nome}, então o campo foi trocado de ${anterior.nome}. A partir dos ${IDADE_JOVENS_ADULTOS} anos a turma deixa de ser Kids. Se for para manter a outra, é só escolher de novo.`
+          : `Com ${novaIdade} anos a turma é ${sugerida.nome}. Pode trocar se for o caso.`,
+      );
+    } else {
+      setAvisoTurma("");
+    }
+
+    if (!graduacao) return;
+
+    const novaEscala = escalaPorIdade(novaIdade);
     if (escalaDaGraduacao(graduacao as Graduacao) === novaEscala) {
       setAvisoEscala("");
       return;
@@ -461,7 +502,12 @@ export function FormularioAluno({
             id="turmaId"
             name="turmaId"
             value={turmaId}
-            onChange={(e) => setTurmaId(e.target.value)}
+            onChange={(e) => {
+              setTurmaId(e.target.value);
+              // Escolha explícita cala o aviso: ele existe para contar o que o
+              // formulário fez sozinho, e agora quem fez foi a pessoa.
+              setAvisoTurma("");
+            }}
             required
           >
             <option value="">Escolha…</option>
@@ -550,6 +596,15 @@ export function FormularioAluno({
             className="h-11"
           />
         </Campo>
+
+        {avisoTurma ? (
+          <div className="md:col-span-2">
+            <Alert role="status">
+              <AlertTitle>A turma foi preenchida pela idade</AlertTitle>
+              <AlertDescription>{avisoTurma}</AlertDescription>
+            </Alert>
+          </div>
+        ) : null}
 
         {avisoEscala ? (
           <div className="md:col-span-2">

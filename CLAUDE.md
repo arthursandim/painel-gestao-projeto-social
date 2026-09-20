@@ -206,6 +206,14 @@ O aluno de 12 a 15 anos treina na turma de Jovens/Adultos **usando faixa da esca
 - A escala oposta **não** fica disponível. Não é escolha de quem cadastra
 - Se uma correção de data cruzar os 16 anos e a faixa já escolhida não existir na nova escala, o campo é limpo e o app avisa
 
+### Turma preenchida pela idade
+
+Digitada ou alterada a data de nascimento, o campo Turma recebe a turma que o corte dos **12** indica, e o formulário avisa o que fez.
+
+**A diferença para a graduação é deliberada:** a escala oposta some da lista de faixas, a outra turma **não**. Idade incompatível com a turma é *alerta, nunca bloqueio* — as duas turmas continuam na lista e quem cadastra decide.
+
+Só age quando a data muda. Abrir a edição de um aluno de 13 anos que está em Kids não mexe em nada: essa é uma situação que o painel sinaliza e uma pessoa resolve, não algo que uma edição de telefone corrige de passagem.
+
 ### Avisos no cadastro
 
 Faixas permanentes enquanto a situação persistir. **Informam, nunca agem, e não carregam botão de ação própria.**

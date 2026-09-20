@@ -34,7 +34,12 @@ import {
   PARAGRAFOS_TERMO_ADULTO,
 } from "../lib/textosFicha";
 import { formatarMatricula } from "../lib/matricula";
-import { idadeCombinaComTurma, TURMA_JOVENS_ADULTOS, TURMA_KIDS } from "../lib/turma";
+import {
+  idadeCombinaComTurma,
+  TURMA_JOVENS_ADULTOS,
+  TURMA_KIDS,
+  turmaEsperada,
+} from "../lib/turma";
 import {
   chaveDeNome,
   ehCepValido,
@@ -91,6 +96,30 @@ checa("12 anos não é mais Kids", !idadeCombinaComTurma(12, TURMA_KIDS));
 checa("12 anos cabe em Jovens/Adultos", idadeCombinaComTurma(12, TURMA_JOVENS_ADULTOS));
 checa("8 anos não cabe em Jovens/Adultos", !idadeCombinaComTurma(8, TURMA_JOVENS_ADULTOS));
 checa("turma desconhecida não opina", idadeCombinaComTurma(8, "COMPETICAO"));
+
+// A turma que o formulário preenche sozinho quando a data de nascimento muda.
+// O corte é o dos 12 e não o dos 16: um aluno de 13 anos vai para
+// Jovens/Adultos e continua com faixa kids, sem que isso seja inconsistência.
+checa("11 anos sugere Kids", turmaEsperada(11) === TURMA_KIDS);
+checa("no dia dos 12 sugere Jovens/Adultos", turmaEsperada(12) === TURMA_JOVENS_ADULTOS);
+checa("13 anos sugere Jovens/Adultos…", turmaEsperada(13) === TURMA_JOVENS_ADULTOS);
+checa(
+  "…e aos 13 a escala da faixa ainda é kids (réguas diferentes)",
+  escalaPorIdade(13) === "KIDS",
+);
+checa("40 anos sugere Jovens/Adultos", turmaEsperada(40) === TURMA_JOVENS_ADULTOS);
+checa("4 anos sugere Kids", turmaEsperada(4) === TURMA_KIDS);
+
+// A sugestão e o aviso não podem discordar: o formulário preenche a turma que
+// a idade indica, e o aviso permanente cobra exatamente a mesma coisa. Se
+// divergissem, o cadastro sairia com um aviso aceso no momento em que foi
+// salvo — e ninguém saberia qual das duas regras está errada.
+for (const idade of [0, 5, 11, 12, 13, 15, 16, 17, 18, 40]) {
+  checa(
+    `aos ${idade} anos, a turma sugerida não acende o aviso de turma`,
+    idadeCombinaComTurma(idade, turmaEsperada(idade)),
+  );
+}
 
 // =====================================================================
 console.log("\nCorte da ESCALA — aos 16 vira adulta (régua diferente da turma)");
