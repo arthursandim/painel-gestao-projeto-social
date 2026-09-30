@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# planilha de importação de alunos — dado pessoal de menores, nunca versionar
+/importacao/

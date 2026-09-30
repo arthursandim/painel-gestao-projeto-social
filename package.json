@@ -16,7 +16,8 @@
     "db:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "importacao:modelo": "tsx scripts/gera-modelo-importacao.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",
@@ -42,9 +43,15 @@
     "dotenv": "^18.0.1",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
+    "exceljs": "^4.4.0",
     "prisma": "^6.19.0",
     "tailwindcss": "^4",
     "tsx": "^4.20.6",
     "typescript": "^5"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "^11.1.1"
+    }
   }
 }
