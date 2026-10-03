@@ -17,8 +17,12 @@ import { idadeHoje } from "@/lib/data";
 import { podeVerDadosSensiveis } from "@/lib/selecaoAluno";
 
 /**
- * Versão do template da ficha, impressa no rodapé e gravada no registro do
- * documento quando a fase 5 arquivar o PDF assinado.
+ * Versão do template da ficha, mostrada na tela antes de imprimir e gravada no
+ * registro do documento quando a fase 5 arquivar o PDF assinado.
+ *
+ * NÃO é impressa no papel — decisão tomada na fase 4 (ver "Ficha impressa ›
+ * Versionamento do template" no CLAUDE.md). Quem arquiva pelo app fica
+ * rastreado por `Documento.versaoFicha`; a ficha digitalizada fora do app não.
  *
  * Sem isto, no dia em que a ficha mudar vão conviver duas gerações de documento
  * assinado sem nada dizer qual é qual — e depois não há como descobrir, porque a
