@@ -329,7 +329,10 @@ function analisarLinha(numero: number, bruto: Bruto, ctx: Contexto): Linha {
       const campo = String(issue.path[0] ?? "");
       if (jaDitos.has(campo)) continue;
       const coluna = COLUNAS.find((c) => c.campo === campo);
-      erros.push(coluna ? `${coluna.cabecalho}: ${issue.message}` : issue.message);
+      // Algumas mensagens do esquema já começam pelo nome do campo
+      // ("Telefone do aluno: informe com DDD."); não repete.
+      const jaNomeia = !coluna || issue.message.startsWith(coluna.cabecalho);
+      erros.push(jaNomeia ? issue.message : `${coluna.cabecalho}: ${issue.message}`);
     }
     return linha;
   }
