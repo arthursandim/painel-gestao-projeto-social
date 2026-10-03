@@ -15,7 +15,7 @@ import { Graduacao, ResponsavelTipo } from "@prisma/client";
 import { avisosDoAluno } from "../lib/avisosAluno";
 import { interpretarRespostaViaCep, mascaraCep } from "../lib/cep";
 import { dataParaDia, diaParaData, idadeEm } from "../lib/data";
-import { conferirEscala, esquemaStatusAluno } from "../lib/esquemaAluno";
+import { conferirEscala, esquemaAluno, esquemaStatusAluno } from "../lib/esquemaAluno";
 import {
   TIPO_DOCUMENTO_DA_VARIANTE,
   varianteDaFicha,
@@ -765,6 +765,36 @@ checa(
   "motivo acima de 300 caracteres é recusado",
   !esquemaStatusAluno.safeParse({ id: ID, motivo: "x".repeat(301) }).success,
 );
+
+console.log("\nCampo opcional inválido diz qual é o erro");
+
+// O campo opcional aceita vazio e, preenchido errado, devolve a mensagem dele
+// — não o "Invalid input" genérico que a união com null produzia.
+const ALUNO_MINIMO = {
+  nome: "Aluno de Teste",
+  nascimento: "2015-01-01",
+  turmaId: ID,
+  modalidade: "JIU_JITSU",
+  graduacao: "KIDS_BRANCA",
+  grau: "0",
+  sexo: "M",
+};
+
+function mensagens(extra: Record<string, string>): string[] {
+  const r = esquemaAluno.safeParse({ ...ALUNO_MINIMO, ...extra });
+  return r.success ? [] : r.error.issues.map((i) => i.message);
+}
+
+for (const [campo, invalido, esperado] of [
+  ["cpf", "123.456.789-00", "CPF inválido — confira os dígitos."],
+  ["cep", "123", "CEP no formato 00000-000."],
+  ["telefoneAluno", "1234", "Telefone do aluno: informe com DDD."],
+  ["peso", "999", "Peso fora do plausível (10 a 250 kg)."],
+  ["estado", "XX", "Estado: use uma UF válida."],
+] as const) {
+  checa(`${campo} em branco passa`, mensagens({ [campo]: "" }).length === 0);
+  checa(`${campo} inválido diz "${esperado}"`, mensagens({ [campo]: invalido }).includes(esperado));
+}
 
 console.log(
   falhas === 0

@@ -46,9 +46,14 @@ const vazio = (v: unknown) =>
  * `null` antes de qualquer validação — senão o validador de CPF reprova o campo
  * vazio e o formulário passa a exigir o documento que o documento manda não
  * exigir.
+ *
+ * `.nullable()`, e não `z.union([z.null(), esquema])`: quando nenhum ramo da
+ * união passa, o Zod descarta as mensagens de cada ramo e devolve um "Invalid
+ * input" genérico. Foi assim que CPF, CEP, telefone, peso e UF inválidos
+ * chegaram à tela sem dizer qual campo estava errado.
  */
 function opcional<S extends z.ZodType>(esquema: S) {
-  return z.preprocess((v) => (vazio(v) ? null : v), z.union([z.null(), esquema]));
+  return z.preprocess((v) => (vazio(v) ? null : v), esquema.nullable());
 }
 
 const texto = (max: number) => opcional(z.string().trim().min(1).max(max));
