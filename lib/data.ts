@@ -109,3 +109,23 @@ export function idadeHoje(
 export function diaEhFuturo(iso: string, hojeIso: string = hojeNoProjeto()): boolean {
   return iso > hojeIso;
 }
+
+const FORMATADOR_MOMENTO = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: FUSO_PROJETO,
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+/**
+ * Instante (timestamp com hora) como `DD/MM/AAAA, HH:MM` no fuso do projeto.
+ *
+ * Para `criadoEm`/`atualizadoEm`, não para dia civil: sem o fuso explícito, o
+ * servidor em UTC mostraria uma chamada fechada às 21h30 como 00:30 do dia
+ * seguinte.
+ */
+export function formatarMomentoBr(momento: Date): string {
+  return FORMATADOR_MOMENTO.format(momento);
+}

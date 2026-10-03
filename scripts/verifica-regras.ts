@@ -14,7 +14,15 @@ import { Graduacao, ResponsavelTipo } from "@prisma/client";
 
 import { avisosDoAluno } from "../lib/avisosAluno";
 import { interpretarRespostaViaCep, mascaraCep } from "../lib/cep";
-import { dataParaDia, diaParaData, idadeEm } from "../lib/data";
+import {
+  emRiscoDeEvasao,
+  esquemaChamada,
+  FALTAS_ALERTA_PADRAO,
+  faltasConsecutivas,
+  limiarFaltas,
+  situacaoDoDia,
+} from "../lib/chamada";
+import { dataParaDia, diaParaData, hojeNoProjeto, idadeEm } from "../lib/data";
 import { conferirEscala, esquemaAluno, esquemaStatusAluno } from "../lib/esquemaAluno";
 import {
   TIPO_DOCUMENTO_DA_VARIANTE,
@@ -795,6 +803,90 @@ for (const [campo, invalido, esperado] of [
   checa(`${campo} em branco passa`, mensagens({ [campo]: "" }).length === 0);
   checa(`${campo} inválido diz "${esperado}"`, mensagens({ [campo]: invalido }).includes(esperado));
 }
+
+// =====================================================================
+console.log("\nChamada: faltas consecutivas são sequência, não soma");
+
+const P = (data: string) => ({ data, presente: true });
+const F = (data: string) => ({ data, presente: false });
+
+checa("sem registro nenhum, zero", faltasConsecutivas([]) === 0);
+checa(
+  "falta, vem, falta, falta dá 2 — NÃO é risco com N=3",
+  faltasConsecutivas([F("2026-09-01"), P("2026-09-03"), F("2026-09-05"), F("2026-09-08")]) === 2 &&
+    !emRiscoDeEvasao(2, 3),
+);
+checa(
+  "três faltas seguidas dá 3 — É risco com N=3",
+  faltasConsecutivas([P("2026-09-01"), F("2026-09-03"), F("2026-09-05"), F("2026-09-08")]) === 3 &&
+    emRiscoDeEvasao(3, 3),
+);
+checa(
+  "presença no registro mais recente zera, mesmo com faltas antes",
+  faltasConsecutivas([F("2026-09-01"), F("2026-09-03"), F("2026-09-05"), P("2026-09-08")]) === 0,
+);
+checa(
+  "ordem de entrada não importa — a função ordena por data",
+  faltasConsecutivas([F("2026-09-08"), P("2026-09-01"), F("2026-09-05"), F("2026-09-03")]) === 3,
+);
+checa("quatro faltas também é risco (limiar é mínimo, não exato)", emRiscoDeEvasao(4, 3));
+
+console.log("\nChamada: limiar de faltas vindo da configuração");
+
+checa('"3" vira 3', limiarFaltas("3") === 3);
+checa('"5" vira 5', limiarFaltas("5") === 5);
+checa(
+  "linha ausente cai no default 3",
+  limiarFaltas(undefined) === FALTAS_ALERTA_PADRAO && FALTAS_ALERTA_PADRAO === 3,
+);
+checa("lixo cai no default", limiarFaltas("abc") === 3);
+checa("zero cai no default (não liga o alerta para todos)", limiarFaltas("0") === 3);
+checa("fração cai no default", limiarFaltas("2.5") === 3);
+
+console.log("\nChamada: data — futuro barrado no servidor, retroativo avisa");
+
+const HOJE = "2026-10-03";
+const hojeOk = situacaoDoDia(HOJE, HOJE);
+checa("hoje passa, sem aviso de retroativo", hojeOk.ok && !hojeOk.retroativo);
+const ontem = situacaoDoDia("2026-10-02", HOJE);
+checa("ontem passa, com aviso de retroativo", ontem.ok && ontem.retroativo);
+checa("amanhã é recusado", !situacaoDoDia("2026-10-04", HOJE).ok);
+checa("ano que vem é recusado", !situacaoDoDia("2027-01-01", HOJE).ok);
+checa("data inexistente é recusada", !situacaoDoDia("2026-02-30", HOJE).ok);
+
+// O caso clássico: 21h30 em SC já é 00:30 do dia seguinte em UTC.
+const noiteLocal = new Date("2026-10-04T00:30:00Z"); // 03/10, 21h30 em SC
+checa("às 21h30 locais, o hoje do projeto ainda é 03/10", hojeNoProjeto(noiteLocal) === "2026-10-03");
+checa(
+  "às 21h30 locais, lançar para 04/10 é futuro e é recusado",
+  !situacaoDoDia("2026-10-04", hojeNoProjeto(noiteLocal)).ok,
+);
+checa(
+  "à 00h01 locais, 04/10 já é hoje e passa",
+  situacaoDoDia("2026-10-04", hojeNoProjeto(new Date("2026-10-04T03:01:00Z"))).ok,
+);
+checa(
+  "o dia gravado é o dia civil, sem deslize de fuso",
+  dataParaDia(diaParaData("2026-10-03")) === "2026-10-03",
+);
+
+console.log("\nChamada: payload do fechamento");
+
+const A1 = "e466373d-b19e-4939-bab0-a4b4671f0888";
+const A2 = "4b0b2a43-5d0b-4c0e-9a5e-2f1d4f6c7a11";
+const TURMA = "0f8e5f3a-2c4d-4e6f-8a9b-1c2d3e4f5a6b";
+checa(
+  "ausente dentro da lista passa",
+  esquemaChamada.safeParse({ turmaId: TURMA, data: HOJE, alunoId: [A1, A2], ausente: [A2] }).success,
+);
+checa(
+  "ausente fora da lista é recusado",
+  !esquemaChamada.safeParse({ turmaId: TURMA, data: HOJE, alunoId: [A1], ausente: [A2] }).success,
+);
+checa(
+  "lista vazia é recusada",
+  !esquemaChamada.safeParse({ turmaId: TURMA, data: HOJE, alunoId: [], ausente: [] }).success,
+);
 
 console.log(
   falhas === 0
