@@ -13,7 +13,7 @@
 import { config } from "dotenv";
 config({ path: ".env.local", quiet: true });
 
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 
 import { PrismaClient } from "@prisma/client";
@@ -24,7 +24,15 @@ import { COLUNAS, listas, type NomeLista } from "./importacao/colunas";
 /** Linhas preparadas com lista suspensa e formato. Folga sobre os ~80 alunos. */
 const LINHAS = 300;
 
-const SAIDA = path.join("importacao", "modelo-alunos.xlsx");
+/**
+ * Gerar de novo não pode apagar uma planilha já preenchida — e o caminho
+ * natural é preencher o próprio modelo, que é também o arquivo que a
+ * importação lê por padrão. O arquivo existente só é substituído com
+ * --sobrescrever; --saida=caminho.xlsx grava em outro lugar.
+ */
+const SAIDA =
+  process.argv.find((a) => a.startsWith("--saida="))?.slice("--saida=".length) ??
+  path.join("importacao", "modelo-alunos.xlsx");
 
 const COR_CABECALHO = "FF16130F";
 const COR_OBRIGATORIO = "FF8A5A00";
@@ -176,6 +184,12 @@ function abaAlunos(livro: ExcelJS.Workbook, referencias: Record<NomeLista, strin
 }
 
 async function main() {
+  if (existsSync(SAIDA) && !process.argv.includes("--sobrescrever")) {
+    throw new Error(
+      `${SAIDA} já existe e pode estar preenchida. Para gerar de novo por cima, use --sobrescrever; para outro arquivo, --saida=caminho.xlsx.`,
+    );
+  }
+
   const prisma = new PrismaClient();
   const turmas = await prisma.turma.findMany({
     where: { ativa: true },
@@ -205,6 +219,6 @@ async function main() {
 }
 
 main().catch((erro) => {
-  console.error(erro);
+  console.error(erro instanceof Error ? erro.message : erro);
   process.exit(1);
 });
