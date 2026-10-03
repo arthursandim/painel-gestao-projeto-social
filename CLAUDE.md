@@ -411,6 +411,8 @@ Acesso: só `INVENTARIO` e `ADMIN`.
 
 Tela inicial e a mais usada. Cinco alertas, cada card leva à lista correspondente.
 
+Os alertas **Documento pendente** e **Ficha a refazer** entram com a fase 5, que passou para o fim (ver "Roteiro › Ordem de execução"). A fase 7 entrega os outros três.
+
 | Alerta | Regra |
 | --- | --- |
 | Risco de evasão | N faltas consecutivas, configurável, default 3 |
@@ -505,6 +507,30 @@ Não começar uma fase antes da anterior estar funcionando de verdade.
 6. **Chamada** — tela, default presente, edição, consulta de faltas consecutivas. Pronto quando 40 alunos são chamados em menos de dois minutos no celular.
 7. **Lista de espera e painel** — fila, conversão, os cinco alertas, configuração.
 8. **Inventário** — itens, empréstimos, movimentos.
+
+### Ordem de execução: a fase 5 vai para o fim
+
+Decidido em 2026-10-03, ao abrir a fase 5: o desenvolvedor ainda vai decidir pontos sobre o armazenamento dos documentos. A fase 5 sai da ordem e vira **a última etapa antes do deploy**. A ordem de execução fica:
+
+**1 → 2 → 3 → 4 → 6 → 7 → 8 → 5 → deploy**
+
+Os números continuam sendo o nome de cada fase, para não desencontrar das referências deste documento ("depois da fase 6", "regra da fase 8") e do histórico de commits.
+
+O que vai junto para a fase 5, porque depende do mesmo armazenamento:
+
+- **Foto do aluno** (câmera e arquivo), adiada da fase 3
+- Os alertas **Documento pendente** e **Ficha a refazer** do painel. A fase 7 entrega os outros três alertas e a ocupação das turmas. Sem a tabela de documentos preenchida, "documento pendente" marcaria todos os alunos.
+- O preenchimento de `temFichaMenorVigente` em `lib/avisosAluno.ts` e o aviso "documento obrigatório faltando" no cadastro
+
+Decisões já tomadas para a fase 5. **As de armazenamento são provisórias**, porque é justamente o que vai ser rediscutido:
+
+| Decisão | Valor | Situação |
+| --- | --- | --- |
+| Tipos obrigatórios (completude) | Menor: ficha-menor, rg-aluno, endereco-aluno, rg-responsavel, endereco-responsavel. Adulto: ficha-adulto, rg-aluno, endereco-aluno. `outros` nunca conta. Variante pelo nascimento, como na ficha | Firme |
+| Buckets | Dois privados: `documentos` e `fotos` | Provisória |
+| Formatos e tamanho | PDF, JPEG, PNG; até 10 MB | Provisória |
+| Caminho do upload | Direto do navegador com URL assinada de upload; servidor baixa o arquivo armazenado e calcula SHA-256 e tamanho ele mesmo | Provisória |
+| `outros` acumula ou substitui | — | **Em aberto** |
 
 ---
 
