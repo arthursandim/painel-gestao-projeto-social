@@ -90,6 +90,8 @@ A mesma tela mostra menos dados dependendo do papel. **A API precisa devolver me
 
 Implementação: um único seletor no backend, `selectAlunoPara(papel)`, decide os campos retornados.
 
+**Visão do inventário** (decidida em 2026-10-04, fase 8). `INVENTARIO` não abre `/alunos`; vê aluno só no empréstimo, por uma seleção própria em `lib/selecaoAluno.ts`: nome, matrícula, turma e um contato para cobrar a devolução — **menor**: nome e telefone do responsável; **adulto**: telefone do aluno. Nada de saúde, nome dos pais, endereço ou documento. Menor e adulto pelo corte dos 18, como na ficha.
+
 ---
 
 ## Modelo de dados
@@ -450,6 +452,22 @@ Daí a simetria: **marcar um empréstimo como perdido gera `SAIDA`.** O item sum
 
 Acesso: só `INVENTARIO` e `ADMIN`.
 
+### Decisões da fase 8
+
+Tomadas pelo desenvolvedor em 2026-10-04:
+
+| Ponto | Decisão |
+| --- | --- |
+| Foto do item e do aluno | **Entram na fase 8.** Bucket privado `fotos`, envio pela Server Action (o navegador redimensiona para 1024 px, JPEG ~150 kB; o servidor confere tipo e tamanho). Caminho fixo por registro, sobrescrito, sem histórico. Leitura por URL assinada curta |
+| Categoria | Texto livre, com sugestões das já usadas (`datalist`) |
+| Quantidade no cadastro | **≥ 1.** Vira o primeiro `MovimentoEstoque` de `ENTRADA`, na mesma transação que cria o item |
+| Quantidade mínima | Selo "abaixo do mínimo" e filtro na lista do inventário. **Não** entra no painel |
+| Datas (movimento, empréstimo, devolução) | Como na chamada: hoje pré-preenchido, futuro bloqueado, retroativa com aviso. Devolução não antes do empréstimo |
+| Autor | `Item.atualizadoPorId` por migration. O `PERDIDO` não ganha coluna própria: quem e quando ficam na `SAIDA` que ele gera |
+| Desativar item com empréstimo em aberto | `INVENTARIO`: barrado. `ADMIN`: permitido, com aviso |
+| Editar item | Tudo menos quantidade, que só muda por movimento, **para todos, inclusive admin**. Desmarcar "pode ser emprestado" com empréstimo em aberto: barrado para `INVENTARIO`, permitido ao `ADMIN` com aviso |
+| Aluno desligado com item emprestado | Sinalizado no empréstimo. Nada é devolvido automaticamente |
+
 ---
 
 ## Painel de pendências
@@ -573,7 +591,7 @@ Não começar uma fase antes da anterior estar funcionando de verdade.
 5. **Documentos** — upload, nomenclatura, hash, versionamento, completude.
 6. **Chamada** — tela, default presente, edição, consulta de faltas consecutivas. Pronto quando 40 alunos são chamados em menos de dois minutos no celular.
 7. **Lista de espera e painel** — fila, conversão, os cinco alertas, configuração.
-8. **Inventário** — itens, empréstimos, movimentos.
+8. **Inventário** — itens, empréstimos, movimentos, e a foto do item e do aluno. Pronto quando: empréstimo duplicado de unidade única é barrado; saída maior que o saldo é barrada; emprestar não mexe no total; perdido gera `SAIDA` e as contas fecham; negar a câmera cai no seletor de arquivo e fechar o modal apaga a luz da câmera, no Android e no iPhone.
 
 ### Ordem de execução: a fase 5 vai para o fim
 
@@ -585,7 +603,7 @@ Os números continuam sendo o nome de cada fase, para não desencontrar das refe
 
 O que vai junto para a fase 5, porque depende do mesmo armazenamento:
 
-- **Foto do aluno** (câmera e arquivo), adiada da fase 3
+- ~~Foto do aluno~~ — **saiu da fase 5 e entra na fase 8**, junto com a foto do item (decidido pelo desenvolvedor em 2026-10-04). Foto não é decisão de negócio pendente; o upload de documento é. Ver "Inventário › Decisões da fase 8"
 - Os alertas **Documento pendente** e **Ficha a refazer** do painel. A fase 7 entrega os outros três alertas e a ocupação das turmas. Sem a tabela de documentos preenchida, "documento pendente" marcaria todos os alunos.
 - O preenchimento de `temFichaMenorVigente` em `lib/avisosAluno.ts` e o aviso "documento obrigatório faltando" no cadastro
 - O bloqueio de nova impressão depois da ficha assinada, hoje liberada a `INSCRICOES` por `podeImprimirFicha` em `lib/ficha.ts` (ver "Ficha impressa › Ficha assinada bloqueia nova impressão")
@@ -596,7 +614,7 @@ Decisões já tomadas para a fase 5. **As de armazenamento são provisórias**, 
 | Decisão | Valor | Situação |
 | --- | --- | --- |
 | Tipos obrigatórios (completude) | Menor: ficha-menor, rg-aluno, endereco-aluno, rg-responsavel, endereco-responsavel. Adulto: ficha-adulto, rg-aluno, endereco-aluno. `outros` nunca conta. Variante pelo nascimento, como na ficha | Firme |
-| Buckets | Dois privados: `documentos` e `fotos` | Provisória |
+| Buckets | Dois privados: `documentos` e `fotos` | `fotos` **firme** (fase 8); `documentos` provisória |
 | Formatos e tamanho | PDF, JPEG, PNG; até 10 MB | Provisória |
 | Caminho do upload | Direto do navegador com URL assinada de upload; servidor baixa o arquivo armazenado e calcula SHA-256 e tamanho ele mesmo | Provisória |
 | `outros` acumula ou substitui | — | **Em aberto** |
