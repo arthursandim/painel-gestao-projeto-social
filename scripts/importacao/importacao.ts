@@ -278,14 +278,25 @@ function converterGraduacao(
   nascimento: string | null,
   ctx: Contexto,
   erros: string[],
+  avisos: string[],
 ): Graduacao | null {
-  if (!cor) return null;
   if (!nascimento || !ehDiaValido(nascimento)) {
-    erros.push("Graduação: corrija a data de nascimento primeiro — é ela que decide a escala da faixa.");
+    if (cor) {
+      erros.push("Graduação: corrija a data de nascimento primeiro — é ela que decide a escala da faixa.");
+    }
     return null;
   }
 
   const escala = escalaDoAluno(nascimento, ctx.hojeIso);
+
+  // Graduação vazia entra como Branca da escala do aluno (decisão do
+  // desenvolvedor em 2026-10-04, na importação da turma Kids): os cadastros de
+  // papel sem faixa anotada são de iniciantes. O grau vazio já vira 0. Fica
+  // como aviso na linha, para o relatório mostrar quem recebeu o padrão.
+  if (!cor) {
+    avisos.push(`Graduação vazia: importada como Branca (escala ${ROTULO_ESCALA[escala]}), grau 0 se o grau também estiver vazio.`);
+    return escala === "KIDS" ? Graduacao.KIDS_BRANCA : Graduacao.ADULTO_BRANCA;
+  }
   const achada = GRADUACOES_POR_ESCALA[escala].find(
     (g) => chaveOpcao(ROTULO_GRADUACAO[g]) === chaveOpcao(cor),
   );
@@ -312,7 +323,7 @@ function analisarLinha(numero: number, bruto: Bruto, ctx: Contexto): Linha {
   const avisos: string[] = [];
 
   const entrada = converterListas(bruto, ctx, erros);
-  entrada.graduacao = converterGraduacao(entrada.graduacao, entrada.nascimento, ctx, erros);
+  entrada.graduacao = converterGraduacao(entrada.graduacao, entrada.nascimento, ctx, erros, avisos);
 
   const linha: Linha = { numero, nome: entrada.nome ?? "(sem nome)", erros, avisos };
 
