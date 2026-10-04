@@ -475,6 +475,12 @@ Tomadas pelo desenvolvedor em 2026-10-04:
 | Desativar item com empréstimo em aberto | `INVENTARIO`: barrado. `ADMIN`: permitido, com aviso |
 | Editar item | Tudo menos quantidade, que só muda por movimento, **para todos, inclusive admin**. Desmarcar "pode ser emprestado" com empréstimo em aberto: barrado para `INVENTARIO`, permitido ao `ADMIN` com aviso |
 | Aluno desligado com item emprestado | Sinalizado no empréstimo. Nada é devolvido automaticamente |
+| Saída de estoque | Só do **disponível**, não do total: a unidade emprestada sai pela devolução ou pelo perdido. Barrada pela aplicação (`erroDeSaida`), não pelo banco |
+| Concorrência | Toda escrita que depende de saldo ou de empréstimo aberto trava a linha do `Item` (`SELECT … FOR UPDATE`, `travarItem` em `lib/inventario.ts`) dentro da transação. Devolução e perda põem o status no `WHERE` |
+| Motivo da `SAIDA` da perda | `Perdido em empréstimo (A0042)` + detalhe opcional. Matrícula, nunca nome |
+| Empréstimos | Na tela do item e em `/inventario/emprestimos` (filtros de situação e "só aluno desligado com item em aberto") |
+
+Implementado na fase 8, concluída em 2026-10-04: regras puras em `lib/estoque.ts`, consultas agregadas e projeções em `lib/inventario.ts`, visão do aluno no empréstimo em `lib/selecaoAluno.ts` (`SELECAO_EMPRESTIMO` + `alunoParaEmprestimo`). Todas conferidas em `npm run verifica`.
 
 ---
 
@@ -613,6 +619,8 @@ Decidido em 2026-10-03, ao abrir a fase 5: o desenvolvedor ainda vai decidir pon
 
 **1 → 2 → 3 → 4 → 6 → 7 → 8 → 5 → deploy**
 
+Situação em 2026-10-04: fases 1, 2, 3, 4, 6, 7 e 8 concluídas. Falta a fase 5 — agora **só documentos**, sem a foto — e depois o deploy.
+
 Os números continuam sendo o nome de cada fase, para não desencontrar das referências deste documento ("depois da fase 6", "regra da fase 8") e do histórico de commits.
 
 O que vai junto para a fase 5, porque depende do mesmo armazenamento:
@@ -639,7 +647,7 @@ Decidido em 2026-10-04: existe **um só projeto Supabase**, o do `.env.local`, e
 
 Quando o desenvolvedor pedir (não antes, e nunca por iniciativa própria), cria-se `npm run banco:limpar`, para deixar o banco zerado e pronto para a importação da planilha:
 
-- **Apaga:** `Presenca`, `Documento`, `ListaEspera`, `Emprestimo`, `MovimentoEstoque`, `Item`, `Aluno` — e os arquivos dos buckets, se a fase 5 já existir
+- **Apaga:** `Presenca`, `Documento`, `ListaEspera`, `Emprestimo`, `MovimentoEstoque`, `Item`, `Aluno` — e os arquivos dos buckets: `fotos` (existe desde a fase 8) e `documentos`, se a fase 5 já existir
 - **Mantém:** `Turma` (com capacidades), `Configuracao`, `Usuario` e o vínculo com o Supabase Auth
 - **Reinicia `Aluno_matricula_seq`**, para os alunos reais começarem em `A0001`. Apagar só as linhas deixaria a próxima matrícula seguir de onde parou
 - Sem `--confirmar`, só mostra quantas linhas apagaria por tabela. Com a flag, exige digitar o identificador do projeto Supabase antes de executar
