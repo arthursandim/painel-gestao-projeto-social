@@ -1,4 +1,6 @@
+import { History } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { carregarChamada } from "./dados";
 import { ListaChamada } from "./lista-chamada";
@@ -41,11 +43,19 @@ export default async function ChamadaPage({ searchParams }: PageProps<"/chamada"
 
   return (
     <section className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Chamada</h1>
-        <p className="text-muted-foreground text-sm">
-          Todos começam presentes. Toque só em quem faltou.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Chamada</h1>
+          <p className="text-muted-foreground text-sm">
+            Todos começam presentes. Toque só em quem faltou.
+          </p>
+        </div>
+        <Button asChild variant="outline" className="min-h-11">
+          <Link href="/chamada/historico">
+            <History className="size-4" />
+            Histórico
+          </Link>
+        </Button>
       </div>
 
       {/* GET: turma e data ficam na URL, e recarregar a página não perde a
