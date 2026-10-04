@@ -151,7 +151,8 @@ model Usuario {
   esperaConvertida         ListaEspera[]      @relation("EsperaConvertidoPor")
   esperaRemovida           ListaEspera[]      @relation("EsperaRemovidoPor")
   esperaAtualizada         ListaEspera[]      @relation("EsperaAtualizadoPor")
-  itensCriados             Item[]
+  itensCriados             Item[]             @relation("ItemCriadoPor")
+  itensAtualizados         Item[]             @relation("ItemAtualizadoPor")
   emprestimosConcedidos    Emprestimo[]       @relation("EmprestimoEmprestadoPor")
   devolucoesRecebidas      Emprestimo[]       @relation("EmprestimoRecebidoPor")
   movimentosRegistrados    MovimentoEstoque[]
@@ -409,7 +410,12 @@ model Item {
   ativo             Boolean           @default(true)
 
   criadoPorId String?  @db.Uuid
-  criadoPor   Usuario? @relation(fields: [criadoPorId], references: [id])
+  criadoPor   Usuario? @relation("ItemCriadoPor", fields: [criadoPorId], references: [id])
+
+  // Quem editou por último (descrição, estado, emprestável, ativo). A
+  // quantidade não passa por aqui: muda só por MovimentoEstoque, que tem autor.
+  atualizadoPorId String?  @db.Uuid
+  atualizadoPor   Usuario? @relation("ItemAtualizadoPor", fields: [atualizadoPorId], references: [id])
 
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt

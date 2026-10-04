@@ -34,6 +34,14 @@ import {
 import { conferirEscala, esquemaAluno, esquemaStatusAluno } from "../lib/esquemaAluno";
 import { esquemaEspera, esquemaRemocaoEspera, ordemDaFila } from "../lib/esquemaEspera";
 import {
+  abaixoDoMinimo,
+  contagem,
+  contagensPorItem,
+  decidirComEmprestimoAberto,
+  esquemaItem,
+  esquemaItemNovo,
+} from "../lib/estoque";
+import {
   TIPO_DOCUMENTO_DA_VARIANTE,
   varianteDaFicha,
   VERSAO_FICHA,
@@ -1036,6 +1044,76 @@ checa(
   "data de entrada manda mais que a data de digitação",
   filaOrdenada.indexOf("Kids/2026-08-01/15:00") < filaOrdenada.indexOf("Kids/2026-09-01/12:00"),
 );
+
+// =====================================================================
+console.log("\nInventário: saldo derivado dos movimentos");
+
+// Kimono: 3 entradas, nenhuma saída, 1 emprestado. O total não cai com o
+// empréstimo — emprestar não é saída.
+const kimono = contagem(3, 0, 1);
+checa("emprestar não mexe no total", kimono.total === 3);
+checa("disponível = total − emprestados", kimono.disponivel === 2);
+// Perdido: a SAIDA tira 1 do total e o status deixa de ser EMPRESTADO. As duas
+// pontas fecham: o disponível continua 2, não cai duas vezes.
+const kimonoPerdido = contagem(3, 1, 0);
+checa("perdido gera SAIDA e o disponível não desconta duas vezes", kimonoPerdido.total === 2 && kimonoPerdido.disponivel === 2);
+// Controle negativo: se o empréstimo também gerasse SAIDA, a mesma unidade
+// sairia duas vezes do disponível.
+checa("controle: empréstimo com SAIDA descontaria duas vezes", contagem(3, 1, 1).disponivel === 1);
+
+const contagensLista = contagensPorItem(
+  [
+    { itemId: "a", tipo: "ENTRADA", quantidade: 30 },
+    { itemId: "a", tipo: "SAIDA", quantidade: 4 },
+    { itemId: "b", tipo: "ENTRADA", quantidade: 1 },
+  ],
+  [{ itemId: "b", quantidade: 1 }],
+);
+checa("lista: entradas menos saídas por item", contagensLista.get("a")?.total === 26);
+checa("lista: item sem empréstimo tem tudo disponível", contagensLista.get("a")?.disponivel === 26);
+checa("lista: unidade única emprestada fica com 0 disponível", contagensLista.get("b")?.disponivel === 0 && contagensLista.get("b")?.total === 1);
+
+console.log("\nInventário: abaixo do mínimo compara o total");
+
+checa("total abaixo do mínimo avisa", abaixoDoMinimo(4, 5));
+checa("total igual ao mínimo não avisa", !abaixoDoMinimo(5, 5));
+checa("mínimo 0 é sem mínimo", !abaixoDoMinimo(0, 0));
+
+console.log("\nInventário: empréstimo em aberto trava desativação e emprestável");
+
+const barradoInventario = decidirComEmprestimoAberto("desativar", 1, false);
+checa("INVENTARIO com empréstimo aberto é barrado", barradoInventario !== null && "erro" in barradoInventario);
+const avisoAdmin = decidirComEmprestimoAberto("desativar", 1, true);
+checa("ADMIN com empréstimo aberto passa com aviso", avisoAdmin !== null && "aviso" in avisoAdmin);
+checa("sem empréstimo aberto ninguém é barrado", decidirComEmprestimoAberto("desmarcarEmprestavel", 0, false) === null);
+const desmarcar = decidirComEmprestimoAberto("desmarcarEmprestavel", 2, false);
+checa("desmarcar emprestável também barra INVENTARIO", desmarcar !== null && "erro" in desmarcar);
+
+console.log("\nInventário: cadastro do item");
+
+const itemBase = {
+  descricao: "Faixa branca A2",
+  categoria: "",
+  observacao: "",
+  unidadeMedida: "un",
+  quantidadeMinima: "10",
+  identificacao: "",
+  estadoConservacao: "NOVO",
+  podeSerEmprestado: null,
+};
+const itemOk = esquemaItemNovo.safeParse({ ...itemBase, quantidade: "30" });
+checa("item válido passa", itemOk.success);
+checa("checkbox ausente vira não emprestável", itemOk.success && itemOk.data.podeSerEmprestado === false);
+checa("checkbox marcado vira emprestável", esquemaItemNovo.safeParse({ ...itemBase, quantidade: "1", podeSerEmprestado: "on" }).data?.podeSerEmprestado === true);
+checa("categoria vazia vira null", itemOk.success && itemOk.data.categoria === null);
+checa("quantidade 0 no cadastro é recusada", !esquemaItemNovo.safeParse({ ...itemBase, quantidade: "0" }).success);
+checa("quantidade vazia é recusada (não vira 0)", !esquemaItemNovo.safeParse({ ...itemBase, quantidade: "" }).success);
+checa("quantidade negativa é recusada", !esquemaItemNovo.safeParse({ ...itemBase, quantidade: "-3" }).success);
+checa("quantidade fracionária é recusada", !esquemaItemNovo.safeParse({ ...itemBase, quantidade: "1.5" }).success);
+checa("mínimo vazio é recusado", !esquemaItem.safeParse({ ...itemBase, quantidadeMinima: "" }).success);
+checa("descrição vazia é recusada", !esquemaItem.safeParse({ ...itemBase, descricao: "  " }).success);
+// A edição não carrega quantidade: o esquema de edição a ignora.
+checa("edição não aceita quantidade como campo", !("quantidade" in (esquemaItem.safeParse({ ...itemBase, quantidade: "99" }).data ?? {})));
 
 console.log(
   falhas === 0

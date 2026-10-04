@@ -1,0 +1,162 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { z } from "zod";
+
+import { FormAtivoItem } from "./form-ativo";
+import { BotaoVoltar } from "@/components/botao-voltar";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { exigirAcesso } from "@/lib/auth";
+import { formatarMomentoBr } from "@/lib/data";
+import { abaixoDoMinimo, ROTULO_ESTADO } from "@/lib/estoque";
+import { contagemDoItem } from "@/lib/inventario";
+import { ehAdmin } from "@/lib/permissoes";
+import { prisma } from "@/lib/prisma";
+
+export const metadata: Metadata = { title: "Item — Engenho Cidadão" };
+
+export default async function ItemPage({ params }: PageProps<"/inventario/[id]">) {
+  const usuario = await exigirAcesso("/inventario");
+  const { id } = await params;
+  if (!z.uuid().safeParse(id).success) notFound();
+
+  const [item, contagem] = await Promise.all([
+    prisma.item.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        descricao: true,
+        categoria: true,
+        observacao: true,
+        unidadeMedida: true,
+        quantidadeMinima: true,
+        identificacao: true,
+        estadoConservacao: true,
+        podeSerEmprestado: true,
+        ativo: true,
+        criadoEm: true,
+        atualizadoEm: true,
+        criadoPor: { select: { nome: true } },
+        atualizadoPor: { select: { nome: true } },
+      },
+    }),
+    contagemDoItem(id),
+  ]);
+  if (!item) notFound();
+
+  const baixo = abaixoDoMinimo(contagem.total, item.quantidadeMinima);
+  const un = item.unidadeMedida;
+
+  return (
+    <section className="space-y-6">
+      <div className="flex flex-col space-y-1">
+        <BotaoVoltar href="/inventario">Inventário</BotaoVoltar>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-semibold">{item.descricao}</h1>
+          {!item.ativo ? <Badge variant="outline">Inativo</Badge> : null}
+          {item.podeSerEmprestado ? <Badge variant="secondary">Emprestável</Badge> : null}
+          {baixo ? <Badge variant="destructive">Abaixo do mínimo</Badge> : null}
+        </div>
+        <p className="text-muted-foreground text-sm">
+          {[item.categoria, item.identificacao].filter(Boolean).join(" · ") || "Sem categoria"}
+        </p>
+      </div>
+
+      {/* Faixas permanentes enquanto a situação persistir: a exceção que o
+          admin autorizou continua visível até alguém resolver. */}
+      {contagem.emprestados > 0 && !item.ativo ? (
+        <Alert>
+          <AlertDescription>
+            Item inativo com empréstimo em aberto. Registre a devolução ou a perda.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {contagem.emprestados > 0 && !item.podeSerEmprestado ? (
+        <Alert>
+          <AlertDescription>
+            Item marcado como não emprestável, mas com empréstimo em aberto.
+            Registre a devolução ou a perda.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      <div className="grid grid-cols-3 gap-3">
+        <Numero rotulo="Total" valor={contagem.total} un={un} />
+        <Numero rotulo="Disponível" valor={contagem.disponivel} un={un} />
+        <Numero rotulo="Emprestado" valor={contagem.emprestados} un={un} />
+      </div>
+      <p className="text-muted-foreground text-xs">
+        Total é a soma das entradas menos as saídas. Disponível é o total menos o
+        que está emprestado. Nenhum dos dois se edita direto.
+      </p>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Dados do item</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid gap-3 text-sm md:grid-cols-2">
+            <Campo rotulo="Estado de conservação" valor={ROTULO_ESTADO[item.estadoConservacao]} />
+            <Campo rotulo="Unidade de medida" valor={un} />
+            <Campo
+              rotulo="Quantidade mínima"
+              valor={item.quantidadeMinima > 0 ? `${item.quantidadeMinima} ${un}` : "Sem mínimo"}
+            />
+            <Campo rotulo="Pode ser emprestado" valor={item.podeSerEmprestado ? "Sim" : "Não"} />
+            {item.observacao ? (
+              <div className="md:col-span-2">
+                <dt className="text-muted-foreground">Observação</dt>
+                <dd className="whitespace-pre-line">{item.observacao}</dd>
+              </div>
+            ) : null}
+          </dl>
+          <p className="text-muted-foreground mt-4 text-xs">
+            Cadastrado em {formatarMomentoBr(item.criadoEm)}
+            {item.criadoPor ? ` por ${item.criadoPor.nome}` : ""}. Última alteração em{" "}
+            {formatarMomentoBr(item.atualizadoEm)}
+            {item.atualizadoPor ? ` por ${item.atualizadoPor.nome}` : ""}.
+          </p>
+        </CardContent>
+      </Card>
+
+      <div className="flex flex-wrap items-start gap-2">
+        <Button asChild variant="outline" className="min-h-11">
+          <Link href={`/inventario/${item.id}/editar`}>Editar dados</Link>
+        </Button>
+        {/* A chave reinicia a confirmação quando o estado muda. */}
+        <FormAtivoItem
+          key={String(item.ativo)}
+          itemId={item.id}
+          ativo={item.ativo}
+          emprestados={contagem.emprestados}
+          admin={ehAdmin(usuario.papeis)}
+        />
+      </div>
+    </section>
+  );
+}
+
+function Numero({ rotulo, valor, un }: { rotulo: string; valor: number; un: string }) {
+  return (
+    <Card>
+      <CardContent className="pt-6 text-center">
+        <p className="text-2xl font-semibold tabular-nums">{valor}</p>
+        <p className="text-muted-foreground text-xs">
+          {rotulo} ({un})
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function Campo({ rotulo, valor }: { rotulo: string; valor: string }) {
+  return (
+    <div>
+      <dt className="text-muted-foreground">{rotulo}</dt>
+      <dd>{valor}</dd>
+    </div>
+  );
+}
