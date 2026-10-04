@@ -1,6 +1,6 @@
 "use server";
 
-import { Papel, StatusAluno } from "@prisma/client";
+import { Papel, StatusAluno, StatusListaEspera } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -202,6 +202,33 @@ async function conferirDuplicidade(
   };
 }
 
+// ------------------------------------------------------ conversão da espera
+
+const ESPERA_INDISPONIVEL =
+  "Este registro da lista de espera não está mais aguardando — já foi convertido ou removido. Volte à lista de espera.";
+
+class EsperaIndisponivel extends Error {}
+
+/** Campo ausente: cadastro comum (null). Presente e inválido: false. */
+function lerEsperaId(form: FormData): string | null | false {
+  const valor = form.get("esperaId");
+  if (valor === null || valor === "") return null;
+  const id = z.uuid().safeParse(valor);
+  return id.success ? id.data : false;
+}
+
+/**
+ * Checagem antecipada, só para não deixar a pessoa preencher o formulário
+ * inteiro à toa. A garantia é o UPDATE condicional dentro da transação.
+ */
+async function esperaAguardando(id: string): Promise<boolean> {
+  const registro = await prisma.listaEspera.findUnique({
+    where: { id },
+    select: { status: true },
+  });
+  return registro?.status === StatusListaEspera.AGUARDANDO;
+}
+
 // ------------------------------------------------------------------ criar
 
 export async function criarAluno(
@@ -209,6 +236,10 @@ export async function criarAluno(
   form: FormData,
 ): Promise<EstadoAluno> {
   const autor = await exigirPapeis(PAPEIS_ESCRITA_ALUNO);
+
+  const esperaId = lerEsperaId(form);
+  if (esperaId === false) return { erro: "Registro da lista de espera inválido." };
+  if (esperaId && !(await esperaAguardando(esperaId))) return { erro: ESPERA_INDISPONIVEL };
 
   const analise = esquemaAluno.safeParse(camposDoForm(form));
   if (!analise.success) return { erro: primeiroErro(analise.error) };
@@ -231,19 +262,47 @@ export async function criarAluno(
   let criado: { id: string; matricula: string } | null = null;
 
   for (let tentativa = 0; tentativa < 10 && !criado; tentativa++) {
-    const matricula = await proximaMatricula(prisma);
     try {
-      criado = await prisma.aluno.create({
-        data: {
-          ...paraBanco(dados, ehMaiorDeIdade(dados.nascimento)),
-          ...capacidade.autorizacao,
-          matricula,
-          criadoPorId: autor.id,
-          atualizadoPorId: autor.id,
-        },
-        select: { id: true, matricula: true },
+      criado = await prisma.$transaction(async (tx) => {
+        // Conversão da lista de espera: o registro é ocupado ANTES de o aluno
+        // existir, com o status no WHERE. Dois cliques, ou duas pessoas, na
+        // mesma conversão: o segundo UPDATE espera o primeiro terminar, relê
+        // a linha, não encontra mais AGUARDANDO e desfaz a transação inteira —
+        // nenhum segundo aluno nasce. Se o aluno falhar (CPF repetido), o
+        // registro volta a aguardar junto com o rollback.
+        if (esperaId) {
+          const ocupado = await tx.listaEspera.updateMany({
+            where: { id: esperaId, status: StatusListaEspera.AGUARDANDO },
+            data: {
+              status: StatusListaEspera.CONVERTIDO,
+              convertidoEm: new Date(),
+              convertidoPorId: autor.id,
+            },
+          });
+          if (ocupado.count === 0) throw new EsperaIndisponivel();
+        }
+
+        const aluno = await tx.aluno.create({
+          data: {
+            ...paraBanco(dados, ehMaiorDeIdade(dados.nascimento)),
+            ...capacidade.autorizacao,
+            matricula: await proximaMatricula(tx),
+            criadoPorId: autor.id,
+            atualizadoPorId: autor.id,
+          },
+          select: { id: true, matricula: true },
+        });
+
+        if (esperaId) {
+          await tx.listaEspera.update({
+            where: { id: esperaId },
+            data: { alunoId: aluno.id },
+          });
+        }
+        return aluno;
       });
     } catch (erro) {
+      if (erro instanceof EsperaIndisponivel) return { erro: ESPERA_INDISPONIVEL };
       const campo = campoDuplicado(erro);
       // Matrícula ocupada só acontece se alguém gravou o número fora da
       // sequence — na importação dos cadastros de papel, por exemplo. Pega o
@@ -263,6 +322,7 @@ export async function criarAluno(
   }
 
   revalidatePath("/alunos");
+  if (esperaId) revalidatePath("/espera");
   redirect(`/alunos/${criado.id}?novo=${criado.matricula}`);
 }
 

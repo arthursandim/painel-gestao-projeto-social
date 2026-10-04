@@ -52,7 +52,7 @@ const vazio = (v: unknown) =>
  * input" genérico. Foi assim que CPF, CEP, telefone, peso e UF inválidos
  * chegaram à tela sem dizer qual campo estava errado.
  */
-function opcional<S extends z.ZodType>(esquema: S) {
+export function opcional<S extends z.ZodType>(esquema: S) {
   return z.preprocess((v) => (vazio(v) ? null : v), esquema.nullable());
 }
 
@@ -75,7 +75,7 @@ export const esquemaStatusAluno = z.object({
   motivo: texto(300),
 });
 
-const dia = (rotulo: string) =>
+export const dia = (rotulo: string) =>
   z
     .string()
     .trim()
@@ -113,6 +113,29 @@ const uf = (rotulo: string) =>
       .transform((v) => v.toUpperCase()),
   );
 
+/**
+ * Nascimento obrigatório: no passado e com idade plausível. Usado também pela
+ * lista de espera, que precisa da mesma régua para sugerir a turma.
+ */
+export const campoNascimento = dia("Nascimento")
+  .refine((v) => !diaEhFuturo(v), {
+    error: "A data de nascimento não pode estar no futuro.",
+  })
+  .refine((v) => idadeEm(v, hojeNoProjeto()) <= IDADE_MAXIMA_PLAUSIVEL, {
+    error: "Idade implausível — confira o ano de nascimento.",
+  });
+
+/** Telefone opcional, com DDD, gravado sempre no formato (96) 99123-4567. */
+export function campoTelefone(rotulo: string) {
+  return opcional(
+    z
+      .string()
+      .trim()
+      .refine(ehTelefoneValido, { error: `${rotulo}: informe com DDD.` })
+      .transform(formatarTelefone),
+  );
+}
+
 export const esquemaAluno = z
   .object({
     // ---------------------------------------------------------- obrigatórios
@@ -122,13 +145,7 @@ export const esquemaAluno = z
       .min(3, { error: "Informe o nome completo do aluno." })
       .max(150),
 
-    nascimento: dia("Nascimento")
-      .refine((v) => !diaEhFuturo(v), {
-        error: "A data de nascimento não pode estar no futuro.",
-      })
-      .refine((v) => idadeEm(v, hojeNoProjeto()) <= IDADE_MAXIMA_PLAUSIVEL, {
-        error: "Idade implausível — confira o ano de nascimento.",
-      }),
+    nascimento: campoNascimento,
 
     turmaId: z.uuid({ error: "Escolha a turma." }),
     modalidade: z.enum(Modalidade, { error: "Escolha a modalidade." }),
@@ -167,24 +184,8 @@ export const esquemaAluno = z
     // Normalizado na gravação: todo telefone fica no banco como (96) 99123-4567.
     // Sem isto conviveriam "96991234567", "96 99123-4567" e "(96)99123-4567", e
     // a mesma pessoa pareceria três contatos diferentes numa busca futura.
-    telefoneResponsavel: opcional(
-      z
-        .string()
-        .trim()
-        .refine(ehTelefoneValido, {
-          error: "Telefone do responsável: informe com DDD.",
-        })
-        .transform(formatarTelefone),
-    ),
-    telefoneAluno: opcional(
-      z
-        .string()
-        .trim()
-        .refine(ehTelefoneValido, {
-          error: "Telefone do aluno: informe com DDD.",
-        })
-        .transform(formatarTelefone),
-    ),
+    telefoneResponsavel: campoTelefone("Telefone do responsável"),
+    telefoneAluno: campoTelefone("Telefone do aluno"),
     email: opcional(z.email({ error: "E-mail inválido." })),
 
     rg: texto(30),

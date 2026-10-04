@@ -25,6 +25,7 @@ import {
 } from "../lib/chamada";
 import { dataParaDia, diaParaData, hojeNoProjeto, idadeEm } from "../lib/data";
 import { conferirEscala, esquemaAluno, esquemaStatusAluno } from "../lib/esquemaAluno";
+import { esquemaEspera, esquemaRemocaoEspera, ordemDaFila } from "../lib/esquemaEspera";
 import {
   TIPO_DOCUMENTO_DA_VARIANTE,
   varianteDaFicha,
@@ -933,6 +934,79 @@ checa("35 com 38 ativos avisa", avisoCapacidadeAbaixo("Kids", 35, 38)?.includes(
 checa("38 com 38 ativos não avisa (cheia não é acima)", avisoCapacidadeAbaixo("Kids", 38, 38) === null);
 checa("40 com 38 ativos não avisa", avisoCapacidadeAbaixo("Kids", 40, 38) === null);
 checa("campo vazio no meio da digitação não avisa", avisoCapacidadeAbaixo("Kids", NaN, 38) === null);
+
+console.log("\nLista de espera: obrigatórios e validações");
+
+const TURMA_ESPERA = "0f8e5f3a-2c4d-4e6f-8a9b-1c2d3e4f5a6b";
+const ESPERA_OK = {
+  nome: "Maria da Silva",
+  nascimento: "2018-03-10",
+  telefone: "",
+  turmaPretendidaId: TURMA_ESPERA,
+  dataEntrada: "2026-08-15",
+  observacao: "",
+};
+const espera = (extra: Record<string, unknown>) =>
+  esquemaEspera.safeParse({ ...ESPERA_OK, ...extra });
+
+const esperaMinima = espera({});
+checa("nome, nascimento, turma e data bastam", esperaMinima.success);
+checa(
+  "telefone e observação vazios viram null",
+  esperaMinima.success &&
+    esperaMinima.data.telefone === null &&
+    esperaMinima.data.observacao === null,
+);
+checa("sem turma pretendida é recusado", !espera({ turmaPretendidaId: "" }).success);
+checa("sem nome é recusado", !espera({ nome: " " }).success);
+checa("nascimento no futuro é recusado", !espera({ nascimento: "2099-01-01" }).success);
+checa("data de entrada no futuro é recusada", !espera({ dataEntrada: "2099-01-01" }).success);
+checa("data de entrada antiga é aceita (fila em papel)", espera({ dataEntrada: "2025-02-01" }).success);
+checa("telefone sem DDD é recusado", !espera({ telefone: "99123-4567" }).success);
+const esperaTel = espera({ telefone: "48991234567" });
+checa(
+  "telefone com DDD é normalizado",
+  esperaTel.success && esperaTel.data.telefone === "(48) 99123-4567",
+);
+
+console.log("\nLista de espera: remoção exige motivo");
+
+checa("com motivo passa", esquemaRemocaoEspera.safeParse({ id: TURMA_ESPERA, motivo: "Desistiu" }).success);
+checa("motivo vazio é recusado", !esquemaRemocaoEspera.safeParse({ id: TURMA_ESPERA, motivo: "  " }).success);
+checa("motivo ausente é recusado", !esquemaRemocaoEspera.safeParse({ id: TURMA_ESPERA, motivo: null }).success);
+
+console.log("\nLista de espera: ordem da fila");
+
+const registro = (turmaNome: string, dataEntrada: string, criado: string) => ({
+  turmaNome,
+  dataEntrada,
+  criadoEm: new Date(criado),
+  rotulo: `${turmaNome}/${dataEntrada}/${criado.slice(11, 16)}`,
+});
+const filaOrdenada = [
+  registro("Kids", "2026-09-01", "2026-09-01T12:00:00Z"),
+  registro("Jovens/Adultos", "2026-09-10", "2026-09-10T12:00:00Z"),
+  registro("Kids", "2026-08-01", "2026-09-20T15:00:00Z"),
+  registro("Kids", "2026-08-01", "2026-09-20T14:00:00Z"),
+  registro("Jovens/Adultos", "2026-07-01", "2026-07-01T12:00:00Z"),
+]
+  .sort(ordemDaFila)
+  .map((r) => r.rotulo);
+checa(
+  "por turma, depois data de entrada, depois quem foi digitado antes",
+  filaOrdenada.join(" | ") ===
+    [
+      "Jovens/Adultos/2026-07-01/12:00",
+      "Jovens/Adultos/2026-09-10/12:00",
+      "Kids/2026-08-01/14:00",
+      "Kids/2026-08-01/15:00",
+      "Kids/2026-09-01/12:00",
+    ].join(" | "),
+);
+checa(
+  "data de entrada manda mais que a data de digitação",
+  filaOrdenada.indexOf("Kids/2026-08-01/15:00") < filaOrdenada.indexOf("Kids/2026-09-01/12:00"),
+);
 
 console.log(
   falhas === 0

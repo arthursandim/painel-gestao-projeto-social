@@ -149,6 +149,8 @@ model Usuario {
   documentosEnviados       Documento[]
   esperaCriada             ListaEspera[]      @relation("EsperaCriadoPor")
   esperaConvertida         ListaEspera[]      @relation("EsperaConvertidoPor")
+  esperaRemovida           ListaEspera[]      @relation("EsperaRemovidoPor")
+  esperaAtualizada         ListaEspera[]      @relation("EsperaAtualizadoPor")
   itensCriados             Item[]
   emprestimosConcedidos    Emprestimo[]       @relation("EmprestimoEmprestadoPor")
   devolucoesRecebidas      Emprestimo[]       @relation("EmprestimoRecebidoPor")
@@ -364,8 +366,18 @@ model ListaEspera {
   convertidoPorId String?   @db.Uuid
   convertidoPor   Usuario?  @relation("EsperaConvertidoPor", fields: [convertidoPorId], references: [id])
 
+  // Saída da fila sem conversão. Nada é apagado: o registro continua, com
+  // quem tirou, quando e por quê. Motivo obrigatório (decisão da fase 7).
+  removidoEm    DateTime?
+  removidoPorId String?   @db.Uuid
+  removidoPor   Usuario?  @relation("EsperaRemovidoPor", fields: [removidoPorId], references: [id])
+  motivoRemocao String?
+
   criadoPorId String?  @db.Uuid
   criadoPor   Usuario? @relation("EsperaCriadoPor", fields: [criadoPorId], references: [id])
+
+  atualizadoPorId String?  @db.Uuid
+  atualizadoPor   Usuario? @relation("EsperaAtualizadoPor", fields: [atualizadoPorId], references: [id])
 
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt

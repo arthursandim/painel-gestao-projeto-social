@@ -112,6 +112,7 @@ export function FormularioAluno({
   turmas,
   valores,
   alunoId,
+  esperaId,
   hojeIso,
   podeAutorizarCapacidade,
   hrefCancelar,
@@ -121,6 +122,8 @@ export function FormularioAluno({
   turmas: readonly TurmaOpcao[];
   valores: ValoresAluno;
   alunoId?: string;
+  /** Conversão da lista de espera: o registro que vira este aluno. */
+  esperaId?: string;
   /** "Hoje" vem do servidor: calculado no cliente, a idade divergiria na
    *  hidratação sempre que o navegador estivesse em outro fuso. */
   hojeIso: string;
@@ -293,7 +296,9 @@ export function FormularioAluno({
   }
 
   const turma = turmas.find((t) => t.id === turmaId);
-  const mudouDeTurma = turmaId !== valores.turmaId;
+  // Aluno novo sempre ocupa uma vaga, mesmo com a turma vindo preenchida da
+  // lista de espera; na edição, só a troca de turma ocupa vaga nova.
+  const mudouDeTurma = !alunoId || turmaId !== valores.turmaId;
   const turmaLotada = Boolean(
     turma && mudouDeTurma && turma.ocupacao >= turma.capacidade,
   );
@@ -325,6 +330,7 @@ export function FormularioAluno({
   return (
     <form action={enviar} className="space-y-6">
       {alunoId ? <input type="hidden" name="id" value={alunoId} /> : null}
+      {esperaId ? <input type="hidden" name="esperaId" value={esperaId} /> : null}
 
       {/* Só o menor tem responsável legal. Para o adulto o campo não é enviado,
           e a ação preserva o que estiver gravado em vez de apagar: mandar vazio
