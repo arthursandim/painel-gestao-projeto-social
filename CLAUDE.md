@@ -541,6 +541,19 @@ Decisões já tomadas para a fase 5. **As de armazenamento são provisórias**, 
 | Caminho do upload | Direto do navegador com URL assinada de upload; servidor baixa o arquivo armazenado e calcula SHA-256 e tamanho ele mesmo | Provisória |
 | `outros` acumula ou substitui | — | **Em aberto** |
 
+### Banco único e limpeza antes da importação
+
+Decidido em 2026-10-04: existe **um só projeto Supabase**, o do `.env.local`, e ele é o que vai para produção. Não há banco separado de desenvolvimento. Testes continuam sendo feitos nele, sobre os alunos reais já importados.
+
+Quando o desenvolvedor pedir (não antes, e nunca por iniciativa própria), cria-se `npm run banco:limpar`, para deixar o banco zerado e pronto para a importação da planilha:
+
+- **Apaga:** `Presenca`, `Documento`, `ListaEspera`, `Emprestimo`, `MovimentoEstoque`, `Item`, `Aluno` — e os arquivos dos buckets, se a fase 5 já existir
+- **Mantém:** `Turma` (com capacidades), `Configuracao`, `Usuario` e o vínculo com o Supabase Auth
+- **Reinicia `Aluno_matricula_seq`**, para os alunos reais começarem em `A0001`. Apagar só as linhas deixaria a próxima matrícula seguir de onde parou
+- Sem `--confirmar`, só mostra quantas linhas apagaria por tabela. Com a flag, exige digitar o identificador do projeto Supabase antes de executar
+
+**Não contraria "Nada é apagado".** Aquela regra vale para o uso do app: aluno desligado, documento substituído, empréstimo devolvido. Esta é a remoção única de dado de teste, antes de o banco passar a guardar dado de verdade. Depois da importação definitiva, o script não deve mais ser rodado.
+
 ---
 
 ## Fluxo de trabalho
