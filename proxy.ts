@@ -78,7 +78,9 @@ export default async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // Tudo, menos arquivos estáticos e imagens — que não têm o que proteger e
-    // pagariam uma chamada de rede por requisição.
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico)$).*)",
+    // pagariam uma chamada de rede por requisição. O manifesto, o service
+    // worker e a página offline também ficam fora: o navegador os busca sem
+    // cookie, e o redirecionamento para /login quebraria a instalação do PWA.
+    "/((?!_next/static|_next/image|favicon\\.ico|manifest\\.webmanifest|sw\\.js|offline\\.html|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico)$).*)",
   ],
 };

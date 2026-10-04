@@ -20,7 +20,8 @@
     "importacao:modelo": "tsx scripts/gera-modelo-importacao.ts",
     "importacao:alunos": "tsx scripts/importa-alunos.ts",
     "storage:preparar": "tsx scripts/prepara-storage.ts",
-    "banco:limpar": "tsx scripts/banco-limpar.ts"
+    "banco:limpar": "tsx scripts/banco-limpar.ts",
+    "pwa:icones": "tsx scripts/gera-icones-pwa.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",

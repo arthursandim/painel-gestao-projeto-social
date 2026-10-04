@@ -27,6 +27,20 @@ const nextConfig: NextConfig = {
 
   allowedDevOrigins: origensDeDesenvolvimento,
 
+  // O service worker não pode ficar em cache HTTP: é ele que decide o que o
+  // app guarda, e uma cópia velha dele seguiria valendo depois do deploy.
+  async headers() {
+    return [
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+        ],
+      },
+    ];
+  },
+
   experimental: {
     // Libera forbidden() e unauthorized() em next/navigation. É o que faz a
     // rota negada responder 403 de verdade, e não um 200 com tela vazia nem um

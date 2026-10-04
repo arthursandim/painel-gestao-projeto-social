@@ -598,6 +598,14 @@ Quando for implementado:
 - **Nunca cachear dado de aluno, documento ou foto**
 - Cache versionado, com limpeza dos antigos na ativação
 
+Implementado em 2026-10-04, a pedido do desenvolvedor, antes do deploy:
+
+- `app/manifest.ts` (servido em `/manifest.webmanifest`); ícones em `public/icones/` e `app/apple-icon.png`, gerados por `npm run pwa:icones` a partir de `public/logo-projeto.png`, sobre fundo `#F5F3EF` (o maskable com o logo em 60%, dentro da zona segura)
+- `public/sw.js`, registrado por `components/registro-sw.tsx` só quando `NODE_ENV === "production"`. **Navegação sempre da rede e nunca guardada** (o HTML tem dado de aluno); sem rede, `public/offline.html`. Só `/_next/static`, `/icones` e os logos têm cópia, como último recurso. POST, pedidos RSC e outros domínios (fotos no Supabase, ViaCEP) não são interceptados
+- **Mudou `sw.js`? Incrementar `VERSAO`** dentro dele: a ativação apaga os caches das versões anteriores. `next.config.ts` serve o `sw.js` com `no-cache`
+- Manifesto, `sw.js` e `offline.html` ficam fora do `proxy.ts`: o navegador os busca sem cookie
+- Instalar no Android exige HTTPS — o teste de verdade é na Vercel. No computador, `localhost` com o build de produção (`npx next build` e `npx next start`) já permite instalar
+
 ---
 
 ## Roteiro — implementar uma fase por vez
