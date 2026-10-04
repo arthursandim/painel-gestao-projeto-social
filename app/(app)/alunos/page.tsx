@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { SeloDeAvisos, SeloDeFaltas } from "./avisos";
+import { CabecalhoOrdenavel, SeletorOrdem } from "@/components/ordenacao";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,11 +17,27 @@ import { avisosDoAluno, type CodigoAviso } from "@/lib/avisosAluno";
 import { dataParaDia, formatarDiaBr, hojeNoProjeto, idadeHoje } from "@/lib/data";
 import { frequenciaDosAlunos, lerLimiarFaltas } from "@/lib/frequencia";
 import { descreverGraduacao } from "@/lib/graduacao";
+import { lerOrdem, ordenarPor, posicaoDaGraduacao } from "@/lib/ordenacao";
 import { podeEscreverAluno } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
 import { selectAlunoPara } from "@/lib/selecaoAluno";
 
 export const metadata: Metadata = { title: "Alunos — Engenho Cidadão" };
+
+// Colunas que ordenam, na ordem da tabela. "Última presença" só existe com o
+// filtro de risco ligado.
+const COLUNAS_ORDEM_ALUNO = [
+  { campo: "matricula", rotulo: "Matrícula" },
+  { campo: "nome", rotulo: "Nome" },
+  { campo: "turma", rotulo: "Turma" },
+  { campo: "nascimento", rotulo: "Nascimento" },
+  { campo: "idade", rotulo: "Idade" },
+  { campo: "graduacao", rotulo: "Graduação" },
+  { campo: "situacao", rotulo: "Situação" },
+  { campo: "ultimaPresenca", rotulo: "Última presença" },
+] as const;
+type CampoOrdemAluno = (typeof COLUNAS_ORDEM_ALUNO)[number]["campo"];
+const CAMPOS_ORDEM_ALUNO = COLUNAS_ORDEM_ALUNO.map((c) => c.campo);
 
 const FILTROS_STATUS = [
   { valor: "ATIVO", rotulo: "Ativos" },
@@ -111,10 +128,29 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
     ]),
   );
 
-  const alunos = encontrados.filter(
+  const filtrados = encontrados.filter(
     (a) =>
       (!risco || emRisco(a.id)) &&
       (!aviso || avisosPorAluno.get(a.id)?.some((av) => av.codigo === aviso)),
+  );
+
+  // Ordenação por coluna, na URL. Faixa pela progressão da IBJJF, nunca pelo
+  // alfabeto (lib/ordenacao.ts); empate desempata pelo nome.
+  const ordem = lerOrdem(filtros, CAMPOS_ORDEM_ALUNO, { campo: "nome", dir: "asc" });
+  const chaves: Record<CampoOrdemAluno, (a: (typeof filtrados)[number]) => string | number | null> = {
+    matricula: (a) => a.matricula,
+    nome: (a) => a.nome,
+    turma: (a) => a.turma.nome,
+    nascimento: (a) => dataParaDia(a.nascimento),
+    idade: (a) => idadeHoje(a.nascimento, hoje),
+    graduacao: (a) => posicaoDaGraduacao(a.graduacao, a.grau),
+    // Ativo antes de desligado; entre os ativos, quem tem mais faltas seguidas.
+    situacao: (a) => (a.status === StatusAluno.ATIVO ? 0 : 1000) - (emRisco(a.id)?.faltas ?? 0),
+    ultimaPresenca: (a) => emRisco(a.id)?.ultimaPresenca ?? null,
+  };
+  const alunos = ordenarPor(filtrados, chaves[ordem.campo], ordem.dir, (a) => a.nome);
+  const colunaOrdem = (rotulo: string, campo: CampoOrdemAluno) => (
+    <CabecalhoOrdenavel rotulo={rotulo} campo={campo} ordem={ordem} caminho="/alunos" params={filtros} />
   );
 
   return (
@@ -236,6 +272,11 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
               </label>
             </div>
 
+            <SeletorOrdem
+              colunas={COLUNAS_ORDEM_ALUNO.filter((c) => risco || c.campo !== "ultimaPresenca")}
+              ordem={ordem}
+            />
+
             <div className="flex items-end">
               <Button type="submit" variant="secondary" className="min-h-11 w-full">
                 <Search className="size-4" />
@@ -309,16 +350,14 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-left">
                 <tr>
-                  <th className="px-3 py-2 font-medium">Matrícula</th>
-                  <th className="px-3 py-2 font-medium">Nome</th>
-                  <th className="px-3 py-2 font-medium">Turma</th>
-                  <th className="px-3 py-2 font-medium">Nascimento</th>
-                  <th className="px-3 py-2 font-medium">Idade</th>
-                  <th className="px-3 py-2 font-medium">Graduação</th>
-                  <th className="px-3 py-2 font-medium">Situação</th>
-                  {risco ? (
-                    <th className="px-3 py-2 font-medium">Última presença</th>
-                  ) : null}
+                  {colunaOrdem("Matrícula", "matricula")}
+                  {colunaOrdem("Nome", "nome")}
+                  {colunaOrdem("Turma", "turma")}
+                  {colunaOrdem("Nascimento", "nascimento")}
+                  {colunaOrdem("Idade", "idade")}
+                  {colunaOrdem("Graduação", "graduacao")}
+                  {colunaOrdem("Situação", "situacao")}
+                  {risco ? colunaOrdem("Última presença", "ultimaPresenca") : null}
                 </tr>
               </thead>
               <tbody>

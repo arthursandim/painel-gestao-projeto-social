@@ -3,6 +3,7 @@ import { HandHelping, Plus, Search } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { CabecalhoOrdenavel, SeletorOrdem } from "@/components/ordenacao";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,9 +12,22 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { abaixoDoMinimo, CONTAGEM_ZERADA, ROTULO_ESTADO } from "@/lib/estoque";
 import { categoriasUsadas, contagensDosItens } from "@/lib/inventario";
+import { lerOrdem, ordenarPor, posicaoDoEstado } from "@/lib/ordenacao";
 import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = { title: "Inventário — Engenho Cidadão" };
+
+const COLUNAS_ORDEM_ITEM = [
+  { campo: "descricao", rotulo: "Descrição" },
+  { campo: "categoria", rotulo: "Categoria" },
+  { campo: "estado", rotulo: "Estado" },
+  { campo: "total", rotulo: "Total" },
+  { campo: "disponivel", rotulo: "Disponível" },
+  { campo: "emprestado", rotulo: "Emprestado" },
+  { campo: "situacao", rotulo: "Situação" },
+] as const;
+type CampoOrdemItem = (typeof COLUNAS_ORDEM_ITEM)[number]["campo"];
+const CAMPOS_ORDEM_ITEM = COLUNAS_ORDEM_ITEM.map((c) => c.campo);
 
 const FILTROS_SITUACAO = [
   { valor: "ATIVO", rotulo: "Ativos" },
@@ -66,12 +80,37 @@ export default async function InventarioPage({ searchParams }: PageProps<"/inven
 
   // Duas consultas agregadas para a lista inteira, não uma por item.
   const contagens = await contagensDosItens(encontrados.map((i) => i.id));
-  const linhas = encontrados
+  const filtradas = encontrados
     .map((item) => {
       const c = contagens.get(item.id) ?? CONTAGEM_ZERADA;
       return { ...item, ...c, baixo: abaixoDoMinimo(c.total, item.quantidadeMinima) };
     })
     .filter((l) => (!baixo || l.baixo) && (!emprestado || l.emprestados > 0));
+
+  // Ordenação por coluna, na URL. Estado do melhor para o pior, não por
+  // alfabeto (lib/ordenacao.ts); empate desempata pela descrição.
+  const ordem = lerOrdem(filtros, CAMPOS_ORDEM_ITEM, { campo: "categoria", dir: "asc" });
+  const chaves: Record<CampoOrdemItem, (l: (typeof filtradas)[number]) => string | number | null> = {
+    descricao: (l) => l.descricao,
+    categoria: (l) => l.categoria,
+    estado: (l) => posicaoDoEstado(l.estadoConservacao),
+    total: (l) => l.total,
+    disponivel: (l) => l.disponivel,
+    emprestado: (l) => l.emprestados,
+    // Ativos antes de inativos; entre eles, abaixo do mínimo primeiro.
+    situacao: (l) => (l.ativo ? 0 : 2) + (l.baixo ? 0 : 1),
+  };
+  const linhas = ordenarPor(filtradas, chaves[ordem.campo], ordem.dir, (l) => l.descricao);
+  const colunaOrdem = (rotulo: string, campo: CampoOrdemItem, direita = false) => (
+    <CabecalhoOrdenavel
+      rotulo={rotulo}
+      campo={campo}
+      ordem={ordem}
+      caminho="/inventario"
+      params={filtros}
+      direita={direita}
+    />
+  );
 
   return (
     <section className="space-y-6">
@@ -163,6 +202,8 @@ export default async function InventarioPage({ searchParams }: PageProps<"/inven
               </label>
             </div>
 
+            <SeletorOrdem colunas={COLUNAS_ORDEM_ITEM} ordem={ordem} />
+
             <div className="flex items-end">
               <Button type="submit" variant="secondary" className="min-h-11 w-full">
                 <Search className="size-4" />
@@ -214,13 +255,13 @@ export default async function InventarioPage({ searchParams }: PageProps<"/inven
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-left">
                 <tr>
-                  <th className="px-3 py-2 font-medium">Descrição</th>
-                  <th className="px-3 py-2 font-medium">Categoria</th>
-                  <th className="px-3 py-2 font-medium">Estado</th>
-                  <th className="px-3 py-2 text-right font-medium">Total</th>
-                  <th className="px-3 py-2 text-right font-medium">Disponível</th>
-                  <th className="px-3 py-2 text-right font-medium">Emprestado</th>
-                  <th className="px-3 py-2 font-medium">Situação</th>
+                  {colunaOrdem("Descrição", "descricao")}
+                  {colunaOrdem("Categoria", "categoria")}
+                  {colunaOrdem("Estado", "estado")}
+                  {colunaOrdem("Total", "total", true)}
+                  {colunaOrdem("Disponível", "disponivel", true)}
+                  {colunaOrdem("Emprestado", "emprestado", true)}
+                  {colunaOrdem("Situação", "situacao")}
                 </tr>
               </thead>
               <tbody>

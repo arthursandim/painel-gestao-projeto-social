@@ -75,6 +75,7 @@ import {
 } from "../lib/textosFicha";
 import { descreverEvento, eventoMatriculaAcima, ocupacaoResultante } from "../lib/historico";
 import { formatarMatricula } from "../lib/matricula";
+import { lerOrdem, ordenarPor, posicaoDaGraduacao, posicaoDoEstado, urlDaOrdem } from "../lib/ordenacao";
 import {
   interpretarEscolha,
   lerAmbiente,
@@ -1300,6 +1301,53 @@ const planoAlunos = montarPlano(["ALUNOS"]).tabelas;
 checa("limpar alunos leva as matrículas acima da capacidade do histórico", planoAlunos.includes("EventosDeMatricula"));
 checa("e antes de apagar os alunos", planoAlunos.indexOf("EventosDeMatricula") < planoAlunos.indexOf("Aluno"));
 checa("limpar inventário não toca no histórico", !montarPlano(["INVENTARIO"]).tabelas.includes("EventosDeMatricula"));
+
+console.log("\nOrdenação: faixa pela progressão da IBJJF, não pelo alfabeto");
+
+const faixa = (g: Graduacao, grau = 0) => posicaoDaGraduacao(g, grau);
+checa("kids: Branca antes de Amarela (o alfabeto inverteria)", faixa(Graduacao.KIDS_BRANCA) < faixa(Graduacao.KIDS_AMARELA));
+checa("kids: Cinza antes de Amarela, Laranja antes de Verde", faixa(Graduacao.KIDS_CINZA) < faixa(Graduacao.KIDS_AMARELA) && faixa(Graduacao.KIDS_LARANJA) < faixa(Graduacao.KIDS_VERDE));
+checa("adulto: Branca antes de Azul (o alfabeto inverteria)", faixa(Graduacao.ADULTO_BRANCA) < faixa(Graduacao.ADULTO_AZUL));
+checa("adulto: Azul > Roxa > Marrom > Preta na progressão", faixa(Graduacao.ADULTO_AZUL) < faixa(Graduacao.ADULTO_ROXA) && faixa(Graduacao.ADULTO_ROXA) < faixa(Graduacao.ADULTO_MARROM) && faixa(Graduacao.ADULTO_MARROM) < faixa(Graduacao.ADULTO_PRETA));
+checa("kids antes de adulto: Verde-Preta kids antes de Branca adulta", faixa(Graduacao.KIDS_VERDE_PRETA) < faixa(Graduacao.ADULTO_BRANCA));
+checa("grau desempata dentro da faixa", faixa(Graduacao.ADULTO_AZUL, 1) < faixa(Graduacao.ADULTO_AZUL, 4));
+checa("grau não passa a faixa seguinte", faixa(Graduacao.ADULTO_AZUL, 4) < faixa(Graduacao.ADULTO_ROXA, 0));
+
+const turmaDeFaixas = [
+  { nome: "Ana", g: Graduacao.ADULTO_PRETA },
+  { nome: "Bia", g: Graduacao.ADULTO_AZUL },
+  { nome: "Caio", g: Graduacao.ADULTO_BRANCA },
+  { nome: "Duda", g: Graduacao.ADULTO_ROXA },
+  { nome: "Eli", g: Graduacao.ADULTO_MARROM },
+];
+checa(
+  "lista crescente: Branca, Azul, Roxa, Marrom, Preta",
+  ordenarPor(turmaDeFaixas, (a) => faixa(a.g), "asc", (a) => a.nome).map((a) => a.nome).join() === "Caio,Bia,Duda,Eli,Ana",
+);
+checa(
+  "lista decrescente: Preta primeiro",
+  ordenarPor(turmaDeFaixas, (a) => faixa(a.g), "desc", (a) => a.nome)[0].nome === "Ana",
+);
+
+console.log("\nOrdenação: texto, vazio e estado de conservação");
+
+const nomes = [{ n: "Álvaro" }, { n: "bruno" }, { n: "Ana" }, { n: "" }];
+checa("acento e maiúscula não separam (Álvaro junto de Ana, antes de bruno)", ordenarPor(nomes, (x) => x.n, "asc", (x) => x.n).map((x) => x.n).join() === "Álvaro,Ana,bruno," || ordenarPor(nomes, (x) => x.n, "asc", (x) => x.n).map((x) => x.n).join() === "Ana,Álvaro,bruno,");
+checa("vazio no fim, crescente", ordenarPor(nomes, (x) => x.n, "asc", (x) => x.n).at(-1)?.n === "");
+checa("vazio no fim também decrescente", ordenarPor(nomes, (x) => x.n, "desc", (x) => x.n).at(-1)?.n === "");
+checa("número é número, não texto (2 antes de 10)", ordenarPor([{ v: 10 }, { v: 2 }], (x) => x.v, "asc", () => 0)[0].v === 2);
+checa("estado do melhor para o pior: Novo antes de Bom antes de Ruim", posicaoDoEstado("NOVO") < posicaoDoEstado("BOM") && posicaoDoEstado("BOM") < posicaoDoEstado("RUIM"));
+checa("Inservível por último (o alfabeto o poria primeiro)", posicaoDoEstado("INSERVIVEL") > posicaoDoEstado("RUIM"));
+
+console.log("\nOrdenação: URL");
+
+const ordemNome = { campo: "nome", dir: "asc" as const };
+checa("coluna desconhecida cai no padrão", lerOrdem({ ordem: "senha" }, ["nome", "idade"], ordemNome).campo === "nome");
+checa("dir estranho vira crescente", lerOrdem({ ordem: "idade", dir: "x" }, ["nome", "idade"], ordemNome).dir === "asc");
+const urlMesma = urlDaOrdem("/alunos", { q: "ana", turma: "k", ordem: "nome", dir: "asc" }, ordemNome, "nome");
+checa("tocar na coluna ativa inverte", urlMesma.includes("dir=desc") && urlMesma.includes("ordem=nome"));
+checa("os filtros continuam na URL", urlMesma.includes("q=ana") && urlMesma.includes("turma=k"));
+checa("outra coluna começa crescente", urlDaOrdem("/alunos", {}, { campo: "nome", dir: "desc" }, "idade").includes("dir=asc"));
 
 console.log(
   falhas === 0

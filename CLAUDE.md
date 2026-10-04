@@ -579,6 +579,17 @@ O aviso **acompanha o recurso**; nunca substitui a tela por "acesse pelo outro d
 
 ---
 
+## Ordenação das listas
+
+Pedido do desenvolvedor em 2026-10-04. As listas de alunos e de inventário ordenam por qualquer coluna: tocar no cabeçalho ordena, tocar de novo inverte. No celular, onde a tabela vira cartões, um "Ordenar por" no formulário de filtros faz o mesmo. A ordem vai na URL (`?ordem=…&dir=…`), junto com os filtros.
+
+- **Faixa pela progressão da IBJJF, nunca pelo alfabeto:** as kids na ordem (Branca → Cinza-Branca → … → Verde-Preta), depois as adultas (Branca → Azul → Roxa → Marrom → Preta). O grau desempata dentro da faixa
+- **Estado de conservação** do melhor para o pior (Novo → Inservível)
+- Texto em ordem do português (acento e maiúscula não separam); célula vazia sempre no fim, nas duas direções; empate desempata pelo nome ou pela descrição
+- Regras em `lib/ordenacao.ts`; cabeçalho e seletor em `components/ordenacao.tsx`
+
+---
+
 ## Identidade visual
 
 Duas marcas, com usos separados:
