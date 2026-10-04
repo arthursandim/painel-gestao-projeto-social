@@ -43,6 +43,12 @@ import {
 } from "../lib/textosFicha";
 import { formatarMatricula } from "../lib/matricula";
 import {
+  avisoCapacidadeAbaixo,
+  esquemaCapacidade,
+  esquemaFaltas,
+  lerInteiro,
+} from "../lib/parametros";
+import {
   idadeCombinaComTurma,
   TURMA_JOVENS_ADULTOS,
   TURMA_KIDS,
@@ -887,6 +893,34 @@ checa(
   "lista vazia é recusada",
   !esquemaChamada.safeParse({ turmaId: TURMA, data: HOJE, alunoId: [], ausente: [] }).success,
 );
+
+console.log("\nParâmetros: faixa do N de faltas e da capacidade");
+
+const faltasLidas = (v: string | null) => lerInteiro(esquemaFaltas, v);
+checa("N = 1 aceito (limite inferior)", faltasLidas("1").success);
+checa("N = 10 aceito (limite superior)", faltasLidas("10").success);
+checa("N = 3 vira o número 3", faltasLidas(" 3 ").data === 3);
+checa("N = 0 recusado", !faltasLidas("0").success);
+checa("N = 11 recusado", !faltasLidas("11").success);
+checa("N fracionado recusado", !faltasLidas("2.5").success);
+checa("N vazio recusado (não vira 0)", !faltasLidas("").success);
+checa("N ausente recusado", !faltasLidas(null).success);
+
+const capKids = (v: string) => lerInteiro(esquemaCapacidade("Kids"), v);
+checa("capacidade 40 aceita", capKids("40").data === 40);
+checa("capacidade 0 recusada", !capKids("0").success);
+checa("capacidade vazia recusada", !capKids("").success);
+checa(
+  "mensagem de capacidade nomeia a turma",
+  capKids("0").error?.issues[0].message.includes("Kids") === true,
+);
+
+console.log("\nParâmetros: capacidade abaixo da ocupação avisa, não bloqueia");
+
+checa("35 com 38 ativos avisa", avisoCapacidadeAbaixo("Kids", 35, 38)?.includes("38/35") === true);
+checa("38 com 38 ativos não avisa (cheia não é acima)", avisoCapacidadeAbaixo("Kids", 38, 38) === null);
+checa("40 com 38 ativos não avisa", avisoCapacidadeAbaixo("Kids", 40, 38) === null);
+checa("campo vazio no meio da digitação não avisa", avisoCapacidadeAbaixo("Kids", NaN, 38) === null);
 
 console.log(
   falhas === 0

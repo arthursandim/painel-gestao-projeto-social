@@ -154,6 +154,7 @@ model Usuario {
   devolucoesRecebidas      Emprestimo[]       @relation("EmprestimoRecebidoPor")
   movimentosRegistrados    MovimentoEstoque[]
   configuracoesAtualizadas Configuracao[]
+  turmasAtualizadas        Turma[]            @relation("TurmaAtualizadaPor")
 
   @@index([ativo])
 }
@@ -172,6 +173,11 @@ model Turma {
   capacidade Int
 
   ativa Boolean @default(true)
+
+  // Quem mexeu por último na turma — na prática, na capacidade, que é o único
+  // campo editável por tela (/config/parametros).
+  atualizadoPorId String?  @db.Uuid
+  atualizadoPor   Usuario? @relation("TurmaAtualizadaPor", fields: [atualizadoPorId], references: [id])
 
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt

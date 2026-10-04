@@ -33,15 +33,17 @@ export default function ConfigPage() {
           </Card>
         </Link>
 
-        <Card className="h-full opacity-60">
-          <CardHeader>
-            <CardTitle className="text-base">Parâmetros</CardTitle>
-            <CardDescription>
-              Capacidade de cada turma e o número de faltas consecutivas que
-              dispara o alerta. Fase 7 do roteiro.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        <Link href="/config/parametros" className="block">
+          <Card className="hover:border-foreground/30 h-full transition-colors">
+            <CardHeader>
+              <CardTitle className="text-base">Parâmetros</CardTitle>
+              <CardDescription>
+                Capacidade de cada turma e o número de faltas consecutivas que
+                dispara o alerta de risco de evasão.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
       </div>
     </section>
   );
