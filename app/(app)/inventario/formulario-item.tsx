@@ -2,10 +2,11 @@
 
 import type { EstadoConservacao } from "@prisma/client";
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 import type { EstadoItem } from "./acoes";
+import { CampoFoto } from "@/components/campo-foto";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,7 +57,20 @@ export function FormularioItem({
   cancelar: string;
   rotuloSalvar: string;
 }) {
-  const [estado, enviar] = useActionState<EstadoItem, FormData>(acao, {});
+  // Foto só no cadastro: no item já gravado ela é trocada na tela dele. Fica no
+  // navegador até o "Salvar"; o ref é o que a ação lê.
+  const [foto, setFoto] = useState<Blob | null>(null);
+  const fotoAtual = useRef<Blob | null>(null);
+  function mudarFoto(nova: Blob | null) {
+    fotoAtual.current = nova;
+    setFoto(nova);
+  }
+  const [estado, enviar] = useActionState<EstadoItem, FormData>((anterior, form) => {
+    if (fotoAtual.current) {
+      form.set("foto", new File([fotoAtual.current], "foto.jpg", { type: "image/jpeg" }));
+    }
+    return acao(anterior, form);
+  }, {});
 
   // Controlados: o React 19 reseta campos não controlados depois do envio, e um
   // erro de validação apagaria o que foi digitado.
@@ -85,6 +99,12 @@ export function FormularioItem({
       {id ? <input type="hidden" name="id" value={id} /> : null}
 
       <div className="grid gap-4 md:grid-cols-2">
+        {!id ? (
+          <div className="md:col-span-2">
+            <CampoFoto foto={foto} aoMudar={mudarFoto} rotulo="Foto do item" />
+          </div>
+        ) : null}
+
         <div className="space-y-2 md:col-span-2">
           <Label htmlFor="descricao">Descrição</Label>
           <Input

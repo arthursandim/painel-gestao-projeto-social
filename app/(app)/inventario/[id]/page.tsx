@@ -25,7 +25,7 @@ import { urlDaFoto } from "@/lib/storageFotos";
 
 export const metadata: Metadata = { title: "Item — Engenho Cidadão" };
 
-export default async function ItemPage({ params }: PageProps<"/inventario/[id]">) {
+export default async function ItemPage({ params, searchParams }: PageProps<"/inventario/[id]">) {
   const usuario = await exigirAcesso("/inventario");
   const { id } = await params;
   if (!z.uuid().safeParse(id).success) notFound();
@@ -97,6 +97,15 @@ export default async function ItemPage({ params }: PageProps<"/inventario/[id]">
           </div>
         </div>
       </div>
+
+      {(await searchParams).foto === "falhou" ? (
+        <Alert variant="destructive" role="alert">
+          <AlertDescription>
+            O item foi cadastrado, mas a foto não foi gravada. Envie de novo
+            por “Tirar foto” ou “Escolher arquivo”.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {/* Faixas permanentes enquanto a situação persistir: a exceção que o
           admin autorizou continua visível até alguém resolver. */}

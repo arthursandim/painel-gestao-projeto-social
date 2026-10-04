@@ -17,7 +17,10 @@ type Etapa = "fechado" | "camera" | "previa";
  * final. Os dois saem redimensionados (lado maior 1024 px, JPEG ~150 kB).
  *
  * O que quebra e está tratado aqui:
- * - getUserMedia exige contexto seguro (HTTPS; localhost também serve);
+ * - getUserMedia exige contexto seguro (HTTPS; localhost também serve). Sem
+ *   ele (o `next dev` pelo IP da rede, em HTTP), o botão da câmera abre a câmera
+ *   nativa do aparelho por `<input capture>`, que não depende de HTTPS — no
+ *   computador, o mesmo input vira seletor de arquivo;
  * - as tracks são encerradas ao capturar, ao cancelar e ao desmontar — senão a
  *   luz da câmera fica acesa;
  * - permissão negada, sem câmera ou navegador embutido de app (iOS) caem no
@@ -29,14 +32,21 @@ type Etapa = "fechado" | "camera" | "previa";
 export function CapturaFoto({
   id,
   acao,
+  aoConfirmar,
   temFoto,
 }: {
-  id: string;
-  acao: (estado: Estado, form: FormData) => Promise<Estado>;
+  /** Registro já gravado: a foto confirmada vai direto para o servidor. */
+  id?: string;
+  acao?: (estado: Estado, form: FormData) => Promise<Estado>;
+  /**
+   * Cadastro ainda não gravado: a foto confirmada volta para o formulário, que
+   * a envia junto com o "Salvar". Nada sobe antes de o registro existir.
+   */
+  aoConfirmar?: (foto: Blob) => void;
   temFoto: boolean;
 }) {
   const [etapa, setEtapa] = useState<Etapa>("fechado");
-  const [origem, setOrigem] = useState<"camera" | "arquivo">("camera");
+  const [origem, setOrigem] = useState<"camera" | "nativa" | "arquivo">("camera");
   const [aviso, setAviso] = useState("");
   const [estado, setEstado] = useState<Estado>({});
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
@@ -56,6 +66,7 @@ export function CapturaFoto({
   const video = useRef<HTMLVideoElement>(null);
   const fluxo = useRef<MediaStream | null>(null);
   const seletorArquivo = useRef<HTMLInputElement>(null);
+  const seletorNativo = useRef<HTMLInputElement>(null);
 
   const pararCamera = useCallback(() => {
     fluxo.current?.getTracks().forEach((t) => t.stop());
@@ -109,11 +120,11 @@ export function CapturaFoto({
     setEstado({});
     setAviso("");
     if (!navigator.mediaDevices?.getUserMedia) {
-      cairNoArquivo(
-        window.isSecureContext
-          ? "Este navegador não oferece acesso à câmera. Escolha um arquivo — ou abra o app pelo celular, no navegador do sistema."
-          : "A câmera só funciona em conexão segura (HTTPS). Escolha um arquivo.",
-      );
+      // Sem câmera embutida (HTTP, ou navegador sem a API): a câmera nativa do
+      // aparelho. Síncrono, ainda dentro do toque — senão o navegador bloqueia
+      // o clique programático.
+      setOrigem("nativa");
+      seletorNativo.current?.click();
       return;
     }
     pararCamera();
@@ -160,16 +171,21 @@ export function CapturaFoto({
     }
   }
 
-  async function aoEscolherArquivo(arquivo: File | undefined) {
+  async function aoEscolherArquivo(
+    arquivo: File | undefined,
+    vindoDe: "nativa" | "arquivo",
+  ) {
+    // Limpo para a mesma imagem poder ser escolhida de novo depois de Refazer.
+    if (seletorArquivo.current) seletorArquivo.current.value = "";
+    if (seletorNativo.current) seletorNativo.current.value = "";
     if (!arquivo) return;
     setEstado({});
     const blob = await reduzirArquivo(arquivo);
-    if (seletorArquivo.current) seletorArquivo.current.value = "";
     if (!blob) {
       setEstado({ erro: "Não foi possível ler esta imagem. Escolha uma foto em JPEG ou PNG." });
       return;
     }
-    setOrigem("arquivo");
+    setOrigem(vindoDe);
     setFoto(blob);
     setEtapa("previa");
   }
@@ -180,12 +196,19 @@ export function CapturaFoto({
       void abrirCamera(cameraId || undefined);
     } else {
       setEtapa("fechado");
-      seletorArquivo.current?.click();
+      (origem === "nativa" ? seletorNativo : seletorArquivo).current?.click();
     }
   }
 
   function usar() {
     if (!foto) return;
+    if (aoConfirmar) {
+      aoConfirmar(foto.blob);
+      setEstado({});
+      fechar();
+      return;
+    }
+    if (!id || !acao) return;
     const form = new FormData();
     form.append("id", id);
     form.append("foto", new File([foto.blob], "foto.jpg", { type: "image/jpeg" }));
@@ -217,7 +240,15 @@ export function CapturaFoto({
           type="file"
           accept="image/*"
           className="hidden"
-          onChange={(e) => aoEscolherArquivo(e.target.files?.[0])}
+          onChange={(e) => aoEscolherArquivo(e.target.files?.[0], "arquivo")}
+        />
+        <input
+          ref={seletorNativo}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => aoEscolherArquivo(e.target.files?.[0], "nativa")}
         />
       </div>
 

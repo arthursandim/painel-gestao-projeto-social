@@ -7,6 +7,7 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
 import type { EstadoAluno } from "./acoes";
+import { CampoFoto } from "@/components/campo-foto";
 import { avisosDoAluno, IDADE_MAIORIDADE } from "@/lib/avisosAluno";
 import { consultarCep, mascaraCep, RECADO_FALHA } from "@/lib/cep";
 import { ehDiaValido, idadeEm } from "@/lib/data";
@@ -125,7 +126,21 @@ export function FormularioAluno({
   hrefCancelar: string;
   rotuloSalvar: string;
 }) {
-  const [estado, enviar] = useActionState<EstadoAluno, FormData>(acao, {});
+  // Foto só na criação: no aluno já gravado ela é trocada na tela dele. Fica no
+  // navegador até o "Salvar" e entra no envio aqui. O ref é o que a ação lê —
+  // ele acompanha a foto sem depender de qual versão da função o React guardou.
+  const [foto, setFoto] = useState<Blob | null>(null);
+  const fotoAtual = useRef<Blob | null>(null);
+  function mudarFoto(nova: Blob | null) {
+    fotoAtual.current = nova;
+    setFoto(nova);
+  }
+  const [estado, enviar] = useActionState<EstadoAluno, FormData>((anterior, form) => {
+    if (fotoAtual.current) {
+      form.set("foto", new File([fotoAtual.current], "foto.jpg", { type: "image/jpeg" }));
+    }
+    return acao(anterior, form);
+  }, {});
 
   const [nascimento, setNascimento] = useState(valores.nascimento);
   const [graduacao, setGraduacao] = useState(valores.graduacao);
@@ -343,6 +358,11 @@ export function FormularioAluno({
         titulo="Identificação"
         descricao="Obrigatórios: nome, nascimento, turma, modalidade, graduação e sexo. O resto pode ficar em branco e ser completado depois."
       >
+        {!alunoId ? (
+          <div className="md:col-span-2">
+            <CampoFoto foto={foto} aoMudar={mudarFoto} rotulo="Foto do aluno" />
+          </div>
+        ) : null}
         <Campo nome="nome" rotulo="Nome completo" largo>
           <Input
             id="nome"

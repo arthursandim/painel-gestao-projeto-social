@@ -46,3 +46,16 @@ export async function lerFotoDoForm(
   const erro = erroDoArquivoDeFoto(bytes);
   return erro ? { erro } : { bytes };
 }
+
+/**
+ * Foto opcional do formulário de criação: sem arquivo é `null`, com arquivo
+ * passa pela mesma conferência. Conferida ANTES de o registro nascer — foto
+ * inválida devolve o erro com o formulário ainda aberto.
+ */
+export async function lerFotoOpcional(
+  form: FormData,
+): Promise<{ bytes: Uint8Array | null } | { erro: string }> {
+  const arquivo = form.get("foto");
+  if (!(arquivo instanceof File) || arquivo.size === 0) return { bytes: null };
+  return lerFotoDoForm(form);
+}

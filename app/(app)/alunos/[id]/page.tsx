@@ -185,6 +185,14 @@ export default async function AlunoPage({
           </AlertDescription>
         </Alert>
       ) : null}
+      {avisosDeRota.foto === "falhou" ? (
+        <Alert variant="destructive" role="alert">
+          <AlertDescription>
+            O aluno foi cadastrado, mas a foto não foi gravada. Envie de novo
+            por “Tirar foto” ou “Escolher arquivo”.
+          </AlertDescription>
+        </Alert>
+      ) : null}
       {avisosDeRota.salvo ? (
         <Alert role="status">
           <AlertDescription>Alterações salvas.</AlertDescription>

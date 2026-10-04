@@ -20,7 +20,7 @@ import { campoDuplicado, proximaMatricula } from "@/lib/matricula";
 import { ehAdmin, PAPEIS_ESCRITA_ALUNO } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
 import { selectAlunoPara } from "@/lib/selecaoAluno";
-import { gravarFoto, lerFotoDoForm } from "@/lib/storageFotos";
+import { gravarFoto, lerFotoDoForm, lerFotoOpcional } from "@/lib/storageFotos";
 import { chaveDeNome } from "@/lib/validacoes";
 
 export type EstadoAluno = {
@@ -253,6 +253,10 @@ export async function criarAluno(
   const erroEscala = conferirEscala(dados.graduacao, dados.nascimento);
   if (erroEscala) return { erro: erroEscala };
 
+  // Foto do cadastro, opcional: conferida antes de o aluno nascer.
+  const foto = await lerFotoOpcional(form);
+  if ("erro" in foto) return foto;
+
   const duplicidade = await conferirDuplicidade(dados.nome, form);
   if (duplicidade) return duplicidade;
 
@@ -324,9 +328,16 @@ export async function criarAluno(
     };
   }
 
+  // O arquivo sobe depois do aluno existir: o caminho é a matrícula. Se o
+  // Storage falhar, o cadastro fica — foto não impede ninguém de ser
+  // cadastrado — e a tela do aluno pede para enviar de novo.
+  const fotoFalhou = foto.bytes
+    ? !(await salvarFotoDoAluno(criado, foto.bytes, autor.id))
+    : false;
+
   revalidatePath("/alunos");
   if (esperaId) revalidatePath("/espera");
-  redirect(`/alunos/${criado.id}?novo=${criado.matricula}`);
+  redirect(`/alunos/${criado.id}?novo=${criado.matricula}${fotoFalhou ? "&foto=falhou" : ""}`);
 }
 
 // --------------------------------------------------------------- atualizar
@@ -517,15 +528,25 @@ export async function enviarFotoAluno(
   });
   if (!aluno) return { erro: "Aluno não encontrado." };
 
-  const caminho = caminhoFotoAluno(aluno.matricula);
-  const falha = await gravarFoto(caminho, foto.bytes);
-  if (falha) return { erro: `Não foi possível gravar a foto: ${falha}` };
-
-  await prisma.aluno.update({
-    where: { id: id.data },
-    data: { fotoPath: caminho, atualizadoPorId: autor.id },
-  });
+  if (!(await salvarFotoDoAluno(aluno, foto.bytes, autor.id))) {
+    return { erro: "Não foi possível gravar a foto. Tente de novo." };
+  }
 
   revalidatePath(`/alunos/${id.data}`);
   return { ok: "Foto salva." };
+}
+
+/** Grava o arquivo no caminho da matrícula e aponta o aluno para ele. */
+async function salvarFotoDoAluno(
+  aluno: { id: string; matricula: string },
+  bytes: Uint8Array,
+  autorId: string,
+): Promise<boolean> {
+  const caminho = caminhoFotoAluno(aluno.matricula);
+  if (await gravarFoto(caminho, bytes)) return false;
+  await prisma.aluno.update({
+    where: { id: aluno.id },
+    data: { fotoPath: caminho, atualizadoPorId: autorId },
+  });
+  return true;
 }

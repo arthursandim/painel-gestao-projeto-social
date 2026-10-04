@@ -27,7 +27,7 @@ import { contagemDoItem, travarItem } from "@/lib/inventario";
 import { ehAdmin, papeisDaRota } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
 import { alunoParaEmprestimo, SELECAO_EMPRESTIMO } from "@/lib/selecaoAluno";
-import { gravarFoto, lerFotoDoForm } from "@/lib/storageFotos";
+import { gravarFoto, lerFotoDoForm, lerFotoOpcional } from "@/lib/storageFotos";
 
 export type EstadoItem = { erro?: string; ok?: string };
 
@@ -54,6 +54,10 @@ export async function criarItem(_estado: EstadoItem, form: FormData): Promise<Es
   if (!analise.success) return { erro: primeiroErro(analise.error) };
   const { quantidade, ...dados } = analise.data;
 
+  // Foto do cadastro, opcional: conferida antes de o item nascer.
+  const foto = await lerFotoOpcional(form);
+  if ("erro" in foto) return foto;
+
   const item = await prisma.$transaction(async (tx) => {
     const criado = await tx.item.create({
       data: { ...dados, criadoPorId: autor.id, atualizadoPorId: autor.id },
@@ -72,8 +76,12 @@ export async function criarItem(_estado: EstadoItem, form: FormData): Promise<Es
     return criado;
   });
 
+  // O arquivo sobe depois do item existir: o caminho é o id. Se o Storage
+  // falhar, o item fica e a tela dele pede para enviar a foto de novo.
+  const fotoFalhou = foto.bytes ? !(await salvarFotoDoItem(item.id, foto.bytes, autor.id)) : false;
+
   revalidatePath("/inventario");
-  redirect(`/inventario/${item.id}`);
+  redirect(`/inventario/${item.id}${fotoFalhou ? "?foto=falhou" : ""}`);
 }
 
 /**
@@ -355,15 +363,21 @@ export async function enviarFotoItem(_estado: EstadoItem, form: FormData): Promi
   const item = await prisma.item.findUnique({ where: { id: id.data }, select: { id: true } });
   if (!item) return { erro: "Item não encontrado." };
 
-  const caminho = caminhoFotoItem(item.id);
-  const falha = await gravarFoto(caminho, foto.bytes);
-  if (falha) return { erro: `Não foi possível gravar a foto: ${falha}` };
-
-  await prisma.item.update({
-    where: { id: item.id },
-    data: { fotoPath: caminho, atualizadoPorId: autor.id },
-  });
+  if (!(await salvarFotoDoItem(item.id, foto.bytes, autor.id))) {
+    return { erro: "Não foi possível gravar a foto. Tente de novo." };
+  }
 
   revalidatePath(`/inventario/${item.id}`);
   return { ok: "Foto salva." };
+}
+
+/** Grava o arquivo no caminho do id e aponta o item para ele. */
+async function salvarFotoDoItem(itemId: string, bytes: Uint8Array, autorId: string): Promise<boolean> {
+  const caminho = caminhoFotoItem(itemId);
+  if (await gravarFoto(caminho, bytes)) return false;
+  await prisma.item.update({
+    where: { id: itemId },
+    data: { fotoPath: caminho, atualizadoPorId: autorId },
+  });
+  return true;
 }

@@ -250,6 +250,12 @@ Tratamento da imagem: redimensionar no navegador antes do upload (lado maior 102
 
 Implementado na fase 8, com a foto do item: `components/captura-foto.tsx` (câmera e arquivo, comum aos dois), `components/quadro-foto.tsx`, regras puras em `lib/fotos.ts` e Storage em `lib/storageFotos.ts`. Bucket privado `fotos`, criado por `npm run storage:preparar` (idempotente; só JPEG, até 1 MB). Caminhos `alunos/{matricula}.jpg` e `itens/{id}.jpg`, sobrescritos na troca. Grava a foto do aluno quem escreve aluno (`ADMIN`, `INSCRICOES`); o professor vê. A foto é mostrada com `<img>` cru e URL assinada de 5 minutos — nunca `next/image`, que guardaria a imagem em cache no servidor.
 
+Pedidos do desenvolvedor no teste da fase 8:
+
+- **Foto também na criação** (`components/campo-foto.tsx`). Fica no navegador até o "Salvar"; o servidor confere antes de criar o registro e grava o arquivo depois, porque o caminho depende da matrícula ou do id. Upload que falha não desfaz o cadastro: a tela do registro abre com `?foto=falhou` e pede o reenvio
+- **Sem HTTPS, o botão da câmera abre a câmera nativa** do aparelho (`<input capture="environment">`), que não depende de contexto seguro. Com HTTPS, a câmera embutida com prévia ao vivo. Permissão negada continua caindo no seletor de arquivo comum, com aviso
+- **Tocar na foto amplia** num `<dialog>` modal nativo: fecha pelo X, por Esc ou tocando fora da foto
+
 ---
 
 ## Ficha impressa
