@@ -10,7 +10,7 @@ import type { EstadoAluno } from "./acoes";
 import { avisosDoAluno, IDADE_MAIORIDADE } from "@/lib/avisosAluno";
 import { consultarCep, mascaraCep, RECADO_FALHA } from "@/lib/cep";
 import { ehDiaValido, idadeEm } from "@/lib/data";
-import { CAMPOS_ALUNO, OPCOES_UF } from "@/lib/esquemaAluno";
+import { OPCOES_UF, type ValoresAluno } from "@/lib/esquemaAluno";
 import { ROTULO_TIPO_SANGUINEO, TIPOS_SANGUINEOS } from "@/lib/saude";
 import { mascaraCpf, mascaraTelefone, somenteDigitos } from "@/lib/validacoes";
 import {
@@ -45,12 +45,6 @@ export type TurmaOpcao = {
   capacidade: number;
   ocupacao: number;
 };
-
-export type ValoresAluno = Record<(typeof CAMPOS_ALUNO)[number], string>;
-
-export const VALORES_VAZIOS: ValoresAluno = Object.fromEntries(
-  CAMPOS_ALUNO.map((campo) => [campo, ""]),
-) as ValoresAluno;
 
 const ROTULO_SEXO: Record<Sexo, string> = { M: "Masculino", F: "Feminino" };
 const ROTULO_MODALIDADE: Record<Modalidade, string> = { JIU_JITSU: "Jiu-Jitsu" };

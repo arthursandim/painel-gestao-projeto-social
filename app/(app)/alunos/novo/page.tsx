@@ -4,7 +4,8 @@ import Link from "next/link";
 import { z } from "zod";
 
 import { criarAluno } from "../acoes";
-import { FormularioAluno, VALORES_VAZIOS, type ValoresAluno } from "../formulario-aluno";
+import { FormularioAluno } from "../formulario-aluno";
+import { VALORES_VAZIOS, type ValoresAluno } from "@/lib/esquemaAluno";
 import { BotaoVoltar } from "@/components/botao-voltar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { exigirPapeis } from "@/lib/auth";

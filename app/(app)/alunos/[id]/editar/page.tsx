@@ -3,11 +3,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { atualizarAluno } from "../../acoes";
-import {
-  FormularioAluno,
-  VALORES_VAZIOS,
-  type ValoresAluno,
-} from "../../formulario-aluno";
+import { FormularioAluno } from "../../formulario-aluno";
+import { VALORES_VAZIOS, type ValoresAluno } from "@/lib/esquemaAluno";
 import { BotaoVoltar } from "@/components/botao-voltar";
 import { exigirPapeis } from "@/lib/auth";
 import { dataParaDia, hojeNoProjeto } from "@/lib/data";

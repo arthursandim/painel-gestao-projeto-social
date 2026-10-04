@@ -318,6 +318,21 @@ export const CAMPOS_ALUNO = [
   "medicamentosContinuos",
 ] as const;
 
+/** Valores do formulário de aluno, sempre texto — o formato do FormData. */
+export type ValoresAluno = Record<(typeof CAMPOS_ALUNO)[number], string>;
+
+/**
+ * Formulário em branco.
+ *
+ * Mora aqui, e não em formulario-aluno.tsx: o que um componente de servidor
+ * importa de um módulo "use client" é uma referência de cliente, não o objeto.
+ * Passá-la direto como prop funciona; espalhá-la (`...VALORES_VAZIOS`) no
+ * servidor não copia campo nenhum, e o formulário recebia `undefined`.
+ */
+export const VALORES_VAZIOS: ValoresAluno = Object.fromEntries(
+  CAMPOS_ALUNO.map((campo) => [campo, ""]),
+) as ValoresAluno;
+
 export function camposDoForm(dados: FormData): Record<string, unknown> {
   return Object.fromEntries(CAMPOS_ALUNO.map((c) => [c, dados.get(c)]));
 }
