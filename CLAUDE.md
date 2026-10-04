@@ -387,6 +387,24 @@ Parâmetros editáveis em tela, só por admin:
 
 A conversão **não é bloqueada** com a turma cheia, mas **exige autorização explícita de um admin**. O sistema registra quem autorizou, quando e a justificativa. A turma passa a mostrar ocupação acima do limite (41/40), deixando a exceção visível. O papel `INSCRICOES` sozinho não consegue estourar a turma.
 
+Faixas da tela `/config/parametros` (decididas na fase 7): N de faltas de **1 a 10**; capacidade de 1 a 200. Capacidade **abaixo da ocupação atual é permitida**, com aviso antes de salvar — ninguém é desligado, a turma só passa a aparecer acima do limite. Só o valor que mudou é gravado, com autor e timestamp (`Turma.atualizadoPorId`, `Configuracao.atualizadoPorId`).
+
+### Decisões da fase 7
+
+Tomadas pelo desenvolvedor em 2026-10-04:
+
+| Ponto | Decisão |
+| --- | --- |
+| Ordem da fila | Por turma pretendida, depois data de entrada; empate no mesmo dia, ordem de digitação |
+| Turma pretendida | **Obrigatória** no Zod (opcional no banco). Sugerida pela idade, pelo corte dos 12, e editável |
+| Data de entrada | Editável, sem futuro — a fila em papel entra com a data original |
+| Telefone | Opcional, como no schema; preenchido, exige DDD |
+| Edição | Só enquanto `AGUARDANDO`. Convertido ou removido é histórico |
+| Saída sem conversão (`REMOVIDO`) | `ADMIN` e `INSCRICOES`, **motivo obrigatório**; grava quem, quando e por quê. Nada é apagado: abas Convertidos e Removidos |
+| Dados divergentes na conversão | **A espera guarda o original.** O aluno é a fonte da verdade dali em diante; a espera aponta para ele |
+
+Na conversão, o registro da fila é ocupado (`UPDATE` condicional ao status) **na mesma transação** que cria o aluno: dois cliques não criam dois alunos, e se o aluno falhar o registro volta a aguardar. A turma cheia passa pela mesma `resolverCapacidade` do cadastro — `INSCRICOES` é barrado no servidor. O telefone da fila vai para o campo do responsável (menor) ou do aluno (adulto).
+
 ---
 
 ## Inventário
@@ -451,6 +469,19 @@ Os alertas **Documento pendente** e **Ficha a refazer** entram com a fase 5, que
 **Nenhum alerta dispara ação automática.** São listas para uma pessoa resolver.
 
 Mostra também a ocupação de cada turma contra a capacidade configurada, destacando a que estiver acima do limite.
+
+Implementado na fase 7:
+
+- Os alertas contam só alunos **ativos**. Destinos: `/alunos?risco=1`, `/alunos?aviso=TURMA`, `/alunos?aviso=ESCALA` — filtros da lista de alunos, não telas paralelas
+- Troca de turma e troca de escala são os avisos `TURMA` e `ESCALA` de `avisosDoAluno`, que valem **nos dois sentidos** (também criança abaixo de 12 em Jovens/Adultos, faixa adulta antes dos 16). Aceito pelo desenvolvedor ao fechar a fase
+- Quem não abre `/alunos` não vê os cards de alerta; quem não abre `/chamada` não vê as chamadas da semana. `INVENTARIO` vê só a ocupação — card que leva a um 403 não é card
+- Faltas consecutivas e última presença saem de `lib/frequencia.ts`, uma consulta para todos os alunos. Chamada, lista de alunos e painel leem dali
+
+### Risco de evasão na lista de alunos
+
+Pedido do desenvolvedor em 2026-10-04. Na lista `/alunos`, o aluno ativo que atingiu o N de faltas consecutivas leva um selo "N faltas seguidas", com a data da última presença, nas duas faces da lista (tabela e cartão). Desligado não recebe selo. Professor também vê: frequência não é dado restrito, e ele já a vê na chamada.
+
+O filtro "Só em risco de evasão" (`?risco=1`) mostra a coluna de última presença. O aviso **não** aparece no cadastro do aluno, porque não está em "Avisos no cadastro".
 
 ### Chamadas da semana
 
