@@ -629,6 +629,8 @@ Decidido em 2026-10-03, ao abrir a fase 5: o desenvolvedor ainda vai decidir pon
 
 Situação em 2026-10-04: fases 1, 2, 3, 4, 6, 7 e 8 concluídas. **Nova ordem, decidida pelo desenvolvedor no mesmo dia:** limpeza do banco (`banco:limpar`) → PWA → deploy → fase 5 (agora **só documentos**, sem a foto) **depois do deploy**.
 
+Deploy: passo a passo e checklist de teste em produção em `docs/deploy.md`. Variáveis só em **Production** na Vercel (o banco é um só; preview gravaria nos dados reais) e funções em `gru1`, a região do Supabase (`vercel.json`).
+
 Os números continuam sendo o nome de cada fase, para não desencontrar das referências deste documento ("depois da fase 6", "regra da fase 8") e do histórico de commits.
 
 O que vai junto para a fase 5, porque depende do mesmo armazenamento:
