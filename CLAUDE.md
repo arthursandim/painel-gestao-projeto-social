@@ -619,7 +619,7 @@ Decidido em 2026-10-03, ao abrir a fase 5: o desenvolvedor ainda vai decidir pon
 
 **1 → 2 → 3 → 4 → 6 → 7 → 8 → 5 → deploy**
 
-Situação em 2026-10-04: fases 1, 2, 3, 4, 6, 7 e 8 concluídas. Falta a fase 5 — agora **só documentos**, sem a foto — e depois o deploy.
+Situação em 2026-10-04: fases 1, 2, 3, 4, 6, 7 e 8 concluídas. **Nova ordem, decidida pelo desenvolvedor no mesmo dia:** limpeza do banco (`banco:limpar`) → PWA → deploy → fase 5 (agora **só documentos**, sem a foto) **depois do deploy**.
 
 Os números continuam sendo o nome de cada fase, para não desencontrar das referências deste documento ("depois da fase 6", "regra da fase 8") e do histórico de commits.
 
@@ -645,14 +645,18 @@ Decisões já tomadas para a fase 5. **As de armazenamento são provisórias**, 
 
 Decidido em 2026-10-04: existe **um só projeto Supabase**, o do `.env.local`, e ele é o que vai para produção. Não há banco separado de desenvolvimento. Testes continuam sendo feitos nele, sobre os alunos reais já importados.
 
-Quando o desenvolvedor pedir (não antes, e nunca por iniciativa própria), cria-se `npm run banco:limpar`, para deixar o banco zerado e pronto para a importação da planilha:
+`npm run banco:limpar` (`scripts/banco-limpar.ts`, regras em `scripts/limpeza/plano.ts`) existe desde 2026-10-04 e roda **quando o desenvolvedor precisar**, em dev ou em produção (decisão dele, que substitui a regra anterior de rodar uma vez só antes da importação). **Nunca por iniciativa própria** — nem para "limpar teste" no meio de outra tarefa.
 
-- **Apaga:** `Presenca`, `Documento`, `ListaEspera`, `Emprestimo`, `MovimentoEstoque`, `Item`, `Aluno` — e os arquivos dos buckets: `fotos` (existe desde a fase 8) e `documentos`, se a fase 5 já existir
-- **Mantém:** `Turma` (com capacidades), `Configuracao`, `Usuario` e o vínculo com o Supabase Auth
-- **Reinicia `Aluno_matricula_seq`**, para os alunos reais começarem em `A0001`. Apagar só as linhas deixaria a próxima matrícula seguir de onde parou
-- Sem `--confirmar`, só mostra quantas linhas apagaria por tabela. Com a flag, exige digitar o identificador do projeto Supabase antes de executar
+- **Interativo.** Mostra o ambiente, o projeto Supabase, o host do banco e quanto existe em cada grupo; pergunta o que apagar; mostra o plano final; só executa depois de a pessoa digitar o identificador do projeto. Sem terminal interativo, recusa. `--listar` só mostra, sem perguntar
+- **Ambiente:** `--ambiente=dev` (padrão) lê `.env.local`; `--ambiente=prd` lê `.env.production.local`. Hoje os dois apontam para o mesmo banco único; a flag existe para o dia em que houver dois
+- **Grupos, cada um com o que depende dele:**
+  1. *Alunos* — alunos, presenças, documentos, empréstimos, os registros da espera convertidos em aluno, `fotos/alunos/` e `documentos/alunos/`. **Reinicia `Aluno_matricula_seq`**, para o próximo aluno ser `A0001`
+  2. *Lista de espera* — a fila inteira
+  3. *Inventário* — itens, movimentos e empréstimos, `fotos/itens/`
+- **Nunca apaga** `Turma` (com capacidades), `Configuracao`, `Usuario` nem o vínculo com o Supabase Auth. O menu nem os oferece
+- O banco sai numa transação só; os arquivos, depois. Se o Storage falhar no meio, rodar de novo e escolher o mesmo grupo termina o serviço
 
-**Não contraria "Nada é apagado".** Aquela regra vale para o uso do app: aluno desligado, documento substituído, empréstimo devolvido. Esta é a remoção única de dado de teste, antes de o banco passar a guardar dado de verdade. Depois da importação definitiva, o script não deve mais ser rodado.
+**Não contraria "Nada é apagado".** Aquela regra vale para o uso do app: aluno desligado, documento substituído, empréstimo devolvido. Isto é remoção de dado decidida por uma pessoa, com o plano na tela e confirmação digitada.
 
 ---
 

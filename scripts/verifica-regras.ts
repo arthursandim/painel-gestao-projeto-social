@@ -75,6 +75,12 @@ import {
 } from "../lib/textosFicha";
 import { formatarMatricula } from "../lib/matricula";
 import {
+  interpretarEscolha,
+  lerAmbiente,
+  montarPlano,
+  projetoDaUrl,
+} from "./limpeza/plano";
+import {
   avisoCapacidadeAbaixo,
   esquemaCapacidade,
   esquemaFaltas,
@@ -1221,6 +1227,42 @@ const paisagem = dimensoesReduzidas(4032, 3024);
 checa("paisagem mantém a proporção", paisagem.largura === 1024 && paisagem.altura === 768);
 const pequena = dimensoesReduzidas(640, 480);
 checa("imagem menor que o limite não é ampliada", pequena.largura === 640 && pequena.altura === 480);
+
+console.log("\nLimpeza do banco: escolha, dependências e ordem");
+
+checa("\"1,3\" escolhe Alunos e Inventário", interpretarEscolha("1,3")?.join() === "ALUNOS,INVENTARIO");
+checa("espaço também separa", interpretarEscolha(" 3 1 ")?.join() === "INVENTARIO,ALUNOS");
+checa("\"todos\" escolhe os três", interpretarEscolha("TODOS")?.length === 3);
+checa("Enter não escolhe nada", interpretarEscolha("")?.length === 0);
+checa("número fora do menu é recusado", interpretarEscolha("4") === null);
+checa("texto é recusado", interpretarEscolha("alunos") === null);
+checa("zero é recusado", interpretarEscolha("0") === null);
+
+const tabelasDe = (ids: Parameters<typeof montarPlano>[0]) => montarPlano(ids).tabelas;
+const soAlunos = tabelasDe(["ALUNOS"]);
+checa("alunos levam presenças, documentos e empréstimos", ["Presenca", "Documento", "Emprestimo"].every((t) => soAlunos.includes(t as never)));
+checa("alunos levam só os convertidos da espera", soAlunos.includes("ListaEsperaConvertidos") && !soAlunos.includes("ListaEspera"));
+checa("quem aponta para Aluno sai antes dele", soAlunos.indexOf("Aluno") === soAlunos.length - 1);
+checa("alunos não tocam no inventário", !soAlunos.includes("Item") && !soAlunos.includes("MovimentoEstoque"));
+checa("alunos reiniciam a matrícula", montarPlano(["ALUNOS"]).reiniciaMatricula);
+checa("inventário não reinicia a matrícula", !montarPlano(["INVENTARIO"]).reiniciaMatricula);
+
+const soInventario = tabelasDe(["INVENTARIO"]);
+checa("inventário leva movimentos e empréstimos antes do item", soInventario.indexOf("Item") > soInventario.indexOf("MovimentoEstoque") && soInventario.indexOf("Item") > soInventario.indexOf("Emprestimo"));
+checa("inventário não toca em aluno", !soInventario.includes("Aluno"));
+
+const tudo = tabelasDe(["ALUNOS", "ESPERA", "INVENTARIO"]);
+checa("empréstimo aparece uma vez só", tudo.filter((t) => t === "Emprestimo").length === 1);
+checa("com a espera inteira, o passo só-convertidos sai", tudo.includes("ListaEspera") && !tudo.includes("ListaEsperaConvertidos"));
+checa("a espera sai antes dos alunos", tudo.indexOf("ListaEspera") < tudo.indexOf("Aluno"));
+checa("nenhum plano toca em Turma, Configuracao ou Usuario", !tudo.some((t) => ["Turma", "Configuracao", "Usuario"].includes(t)));
+checa("pastas sem repetição", montarPlano(["ALUNOS", "INVENTARIO"]).pastas.length === 3);
+
+checa("identificador do projeto pela URL", projetoDaUrl("https://abcdefgh.supabase.co") === "abcdefgh");
+checa("URL que não é do Supabase é recusada", projetoDaUrl("https://exemplo.com") === null);
+checa("sem flag é dev", lerAmbiente([]) === "dev");
+checa("--ambiente=prd", lerAmbiente(["--ambiente=prd"]) === "prd");
+checa("ambiente estranho é recusado", lerAmbiente(["--ambiente=producao"]) === null);
 
 console.log(
   falhas === 0
