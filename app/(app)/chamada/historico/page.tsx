@@ -2,14 +2,16 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { ItemChamada } from "../linha-chamada";
 import { BotaoVoltar } from "@/components/botao-voltar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { exigirAcesso } from "@/lib/auth";
-import { dataParaDia, diaParaData, formatarDiaBr, hojeNoProjeto } from "@/lib/data";
+import { dataParaDia, hojeNoProjeto } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
+import { resumoDasChamadas } from "@/lib/resumoChamadas";
 
 export const metadata: Metadata = { title: "Histórico de chamadas — Engenho Cidadão" };
 
@@ -17,7 +19,6 @@ const MESES = [
   "janeiro", "fevereiro", "março", "abril", "maio", "junho",
   "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
 ];
-const DIAS_SEMANA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 
 /** `AAAA-MM` deslocado de `n` meses. */
 function deslocarMes(mes: string, n: number): string {
@@ -54,30 +55,12 @@ export default async function HistoricoChamadasPage({
   });
   const nomeTurma = new Map(turmas.map((t) => [t.id, t.nome]));
 
-  const grupos = await prisma.presenca.groupBy({
-    by: ["turmaId", "data", "presente"],
-    where: {
-      data: { gte: diaParaData(`${mes}-01`), lt: diaParaData(`${deslocarMes(mes, 1)}-01`) },
-      ...(turmaFiltro ? { turmaId: turmaFiltro } : {}),
-    },
-    _count: { _all: true },
+  const linhas = await resumoDasChamadas({
+    de: `${mes}-01`,
+    ate: `${deslocarMes(mes, 1)}-01`,
+    turmaId: turmaFiltro || undefined,
+    nomeTurma,
   });
-
-  type Linha = { turmaId: string; dia: string; presentes: number; ausentes: number };
-  const porChave = new Map<string, Linha>();
-  for (const g of grupos) {
-    const dia = dataParaDia(g.data);
-    const chave = `${dia}|${g.turmaId}`;
-    const linha = porChave.get(chave) ?? { turmaId: g.turmaId, dia, presentes: 0, ausentes: 0 };
-    if (g.presente) linha.presentes += g._count._all;
-    else linha.ausentes += g._count._all;
-    porChave.set(chave, linha);
-  }
-  const linhas = [...porChave.values()].sort((a, b) =>
-    a.dia !== b.dia
-      ? a.dia < b.dia ? 1 : -1
-      : (nomeTurma.get(a.turmaId) ?? "").localeCompare(nomeTurma.get(b.turmaId) ?? ""),
-  );
 
   const [ano, m] = mes.split("-").map(Number);
   const anterior = deslocarMes(mes, -1);
@@ -149,35 +132,13 @@ export default async function HistoricoChamadasPage({
         </p>
       ) : (
         <ul className="divide-y rounded-lg border">
-          {linhas.map((l) => {
-            const semana = DIAS_SEMANA[diaParaData(l.dia).getUTCDay()];
-            return (
-              <li key={`${l.dia}|${l.turmaId}`}>
-                <Link
-                  href={`/chamada?turma=${l.turmaId}&data=${l.dia}`}
-                  className="hover:bg-muted/40 flex min-h-14 items-center justify-between gap-3 px-3 py-2"
-                >
-                  <span className="min-w-0">
-                    <span className="block font-medium">
-                      {formatarDiaBr(l.dia)} <span className="text-muted-foreground font-normal">({semana})</span>
-                    </span>
-                    <span className="text-muted-foreground block truncate text-xs">
-                      {nomeTurma.get(l.turmaId) ?? "Turma removida"}
-                    </span>
-                  </span>
-                  <span className="shrink-0 text-right text-sm">
-                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                      {l.presentes} P
-                    </span>
-                    {" · "}
-                    <span className="text-destructive font-semibold">{l.ausentes} F</span>
-                    {" · "}
-                    <span className="text-muted-foreground">{l.presentes + l.ausentes}</span>
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
+          {linhas.map((l) => (
+            <ItemChamada
+              key={`${l.dia}|${l.turmaId}`}
+              linha={l}
+              nomeTurma={nomeTurma.get(l.turmaId)}
+            />
+          ))}
         </ul>
       )}
     </section>

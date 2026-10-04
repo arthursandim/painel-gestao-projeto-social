@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { exigirAcesso } from "@/lib/auth";
 import { emRiscoDeEvasao } from "@/lib/chamada";
-import { avisosDoAluno } from "@/lib/avisosAluno";
+import { avisosDoAluno, type CodigoAviso } from "@/lib/avisosAluno";
 import { dataParaDia, formatarDiaBr, hojeNoProjeto, idadeHoje } from "@/lib/data";
 import { frequenciaDosAlunos, lerLimiarFaltas } from "@/lib/frequencia";
 import { descreverGraduacao } from "@/lib/graduacao";
@@ -28,6 +28,13 @@ const FILTROS_STATUS = [
   { valor: "TODOS", rotulo: "Todos" },
 ] as const;
 
+// Os avisos que o painel conta e para os quais o card leva. Os outros códigos
+// continuam no selo de cada linha; aqui só os que viram alerta do painel.
+const FILTROS_AVISO = [
+  { valor: "TURMA", rotulo: "Troca de turma" },
+  { valor: "ESCALA", rotulo: "Troca de escala" },
+] as const satisfies readonly { valor: CodigoAviso; rotulo: string }[];
+
 export default async function AlunosPage({ searchParams }: PageProps<"/alunos">) {
   const usuario = await exigirAcesso("/alunos");
   const filtros = await searchParams;
@@ -39,8 +46,11 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
     FILTROS_STATUS.some((f) => f.valor === filtros.status)
       ? filtros.status
       : "ATIVO";
-  // Risco de evasão é sobre quem ocupa vaga: com o filtro ligado, só ativos.
+  // Risco de evasão e os avisos do painel são sobre quem ocupa vaga: com um
+  // desses filtros ligado, só ativos.
   const risco = filtros.risco === "1";
+  const aviso = FILTROS_AVISO.find((f) => f.valor === filtros.aviso)?.valor ?? null;
+  const soAtivos = risco || aviso !== null;
 
   const podeCadastrar = podeEscreverAluno(usuario.papeis);
 
@@ -57,7 +67,7 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
   });
 
   const where: Prisma.AlunoWhereInput = {
-    ...(risco
+    ...(soAtivos
       ? { status: StatusAluno.ATIVO }
       : status === "TODOS"
         ? {}
@@ -93,9 +103,19 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
     const f = frequencia.get(id);
     return f && emRiscoDeEvasao(f.faltas, limiar) ? f : null;
   };
-  const alunos = risco ? encontrados.filter((a) => emRisco(a.id)) : encontrados;
-
   const hoje = hojeNoProjeto();
+  const avisosPorAluno = new Map(
+    encontrados.map((a) => [
+      a.id,
+      avisosDoAluno({ ...a, nascimento: dataParaDia(a.nascimento) }, hoje),
+    ]),
+  );
+
+  const alunos = encontrados.filter(
+    (a) =>
+      (!risco || emRisco(a.id)) &&
+      (!aviso || avisosPorAluno.get(a.id)?.some((av) => av.codigo === aviso)),
+  );
 
   return (
     <section className="space-y-6">
@@ -141,7 +161,7 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
           navegador funciona e o link pode ser guardado. Sem JavaScript. */}
       <Card>
         <CardContent className="pt-6">
-          <form method="get" className="grid gap-3 md:grid-cols-[1fr_auto_auto_auto_auto]">
+          <form method="get" className="grid gap-3 md:grid-cols-3 lg:grid-cols-[1fr_auto_auto_auto_auto_auto]">
             <div className="space-y-2">
               <Label htmlFor="q">Buscar</Label>
               <Input
@@ -186,6 +206,23 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
               </Select>
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="aviso">Aviso</Label>
+              <Select
+                id="aviso"
+                name="aviso"
+                defaultValue={aviso ?? ""}
+                className="lg:w-44"
+              >
+                <option value="">Qualquer</option>
+                {FILTROS_AVISO.map((f) => (
+                  <option key={f.valor} value={f.valor}>
+                    {f.rotulo}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
             <div className="flex items-end">
               <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm">
                 <input
@@ -216,16 +253,18 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
         {risco
           ? ` Ativos com ${limiar} ou mais faltas consecutivas — sequência, não soma. O limite é configurado em Parâmetros.`
           : ""}
+        {aviso === "TURMA"
+          ? " Ativos cuja idade não combina com a turma (corte dos 12 anos). Quem resolve é o campo Turma, no cadastro."
+          : aviso === "ESCALA"
+            ? " Ativos com 16 anos ou mais ainda com faixa da escala kids. Quem resolve é o campo Graduação, no cadastro."
+            : ""}
       </p>
 
       {/* Abaixo de 768 px a tabela vira cartões empilhados — nunca rolagem
           horizontal. São as duas faces da mesma lista, não duas telas. */}
       <ul className="space-y-3 md:hidden">
         {alunos.map((aluno) => {
-          const avisos = avisosDoAluno(
-            { ...aluno, nascimento: dataParaDia(aluno.nascimento) },
-            hoje,
-          );
+          const avisos = avisosPorAluno.get(aluno.id) ?? [];
           const faltas = emRisco(aluno.id);
           return (
             <li key={aluno.id}>
@@ -284,10 +323,7 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
               </thead>
               <tbody>
                 {alunos.map((aluno) => {
-                  const avisos = avisosDoAluno(
-                    { ...aluno, nascimento: dataParaDia(aluno.nascimento) },
-                    hoje,
-                  );
+                  const avisos = avisosPorAluno.get(aluno.id) ?? [];
                   const faltas = emRisco(aluno.id);
                   return (
                     <tr key={aluno.id} className="hover:bg-muted/40 border-t">

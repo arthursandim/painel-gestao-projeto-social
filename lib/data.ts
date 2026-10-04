@@ -97,6 +97,27 @@ export function idadeEm(nascimentoIso: string, refIso: string): number {
 }
 
 /** Idade hoje, no fuso do projeto. */
+/** Dia civil deslocado de `n` dias. Aritmética em UTC, sem horário de verão. */
+export function deslocarDia(iso: string, n: number): string {
+  const data = diaParaData(iso);
+  data.setUTCDate(data.getUTCDate() + n);
+  return dataParaDia(data);
+}
+
+/**
+ * A segunda-feira da semana de um dia civil. A semana vai de segunda a domingo
+ * (decisão do desenvolvedor em 2026-10-04): no domingo, devolve a segunda
+ * anterior.
+ *
+ * Recebe o dia, não um Date: quem chama passa `hojeNoProjeto()`. Domingo 22h em
+ * SC já é segunda em UTC, e `new Date().getDay()` no servidor da Vercel
+ * mostraria a semana seguinte, vazia.
+ */
+export function segundaDaSemana(iso: string): string {
+  const diaDaSemana = diaParaData(iso).getUTCDay(); // 0 = domingo
+  return deslocarDia(iso, diaDaSemana === 0 ? -6 : 1 - diaDaSemana);
+}
+
 export function idadeHoje(
   nascimento: string | Date,
   hojeIso: string = hojeNoProjeto(),

@@ -23,7 +23,14 @@ import {
   situacaoDoDia,
   ultimaPresenca,
 } from "../lib/chamada";
-import { dataParaDia, diaParaData, hojeNoProjeto, idadeEm } from "../lib/data";
+import {
+  dataParaDia,
+  deslocarDia,
+  diaParaData,
+  hojeNoProjeto,
+  idadeEm,
+  segundaDaSemana,
+} from "../lib/data";
 import { conferirEscala, esquemaAluno, esquemaStatusAluno } from "../lib/esquemaAluno";
 import { esquemaEspera, esquemaRemocaoEspera, ordemDaFila } from "../lib/esquemaEspera";
 import {
@@ -934,6 +941,28 @@ checa("35 com 38 ativos avisa", avisoCapacidadeAbaixo("Kids", 35, 38)?.includes(
 checa("38 com 38 ativos não avisa (cheia não é acima)", avisoCapacidadeAbaixo("Kids", 38, 38) === null);
 checa("40 com 38 ativos não avisa", avisoCapacidadeAbaixo("Kids", 40, 38) === null);
 checa("campo vazio no meio da digitação não avisa", avisoCapacidadeAbaixo("Kids", NaN, 38) === null);
+
+console.log("\nPainel: semana das chamadas, de segunda a domingo");
+
+checa("segunda é a própria segunda", segundaDaSemana("2026-09-28") === "2026-09-28");
+checa("quarta volta para a segunda", segundaDaSemana("2026-09-30") === "2026-09-28");
+checa("sábado volta para a segunda", segundaDaSemana("2026-10-03") === "2026-09-28");
+checa("domingo volta para a segunda ANTERIOR, não avança", segundaDaSemana("2026-10-04") === "2026-09-28");
+checa("a segunda seguinte abre outra semana", segundaDaSemana("2026-10-05") === "2026-10-05");
+checa("semana que atravessa o ano", segundaDaSemana("2027-01-03") === "2026-12-28");
+checa("domingo da semana é segunda + 6", deslocarDia("2026-09-28", 6) === "2026-10-04");
+checa("deslocar atravessa o mês", deslocarDia("2026-09-30", 1) === "2026-10-01");
+// Domingo 04/10, 22h em SC = segunda 05/10, 01h em UTC. Com o dia do servidor,
+// o painel mostraria a semana nova, ainda vazia.
+const domingoNoite = new Date("2026-10-05T01:00:00Z");
+checa(
+  "domingo 22h em SC ainda é a semana que começou na segunda 28/09",
+  segundaDaSemana(hojeNoProjeto(domingoNoite)) === "2026-09-28",
+);
+checa(
+  "controle: pelo dia UTC a resposta seria outra (o caso existe)",
+  segundaDaSemana(dataParaDia(domingoNoite)) === "2026-10-05",
+);
 
 console.log("\nLista de espera: obrigatórios e validações");
 
