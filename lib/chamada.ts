@@ -56,6 +56,15 @@ export function faltasConsecutivas(registros: readonly RegistroPresenca[]): numb
   return faltas;
 }
 
+/** Dia da presença mais recente, ou null se o aluno nunca esteve presente. */
+export function ultimaPresenca(registros: readonly RegistroPresenca[]): string | null {
+  let ultima: string | null = null;
+  for (const r of registros) {
+    if (r.presente && (ultima === null || r.data > ultima)) ultima = r.data;
+  }
+  return ultima;
+}
+
 export function emRiscoDeEvasao(faltas: number, limiar: number): boolean {
   return faltas >= limiar;
 }

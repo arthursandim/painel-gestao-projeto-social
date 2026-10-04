@@ -21,6 +21,7 @@ import {
   faltasConsecutivas,
   limiarFaltas,
   situacaoDoDia,
+  ultimaPresenca,
 } from "../lib/chamada";
 import { dataParaDia, diaParaData, hojeNoProjeto, idadeEm } from "../lib/data";
 import { conferirEscala, esquemaAluno, esquemaStatusAluno } from "../lib/esquemaAluno";
@@ -836,6 +837,17 @@ checa(
   faltasConsecutivas([F("2026-09-08"), P("2026-09-01"), F("2026-09-05"), F("2026-09-03")]) === 3,
 );
 checa("quatro faltas também é risco (limiar é mínimo, não exato)", emRiscoDeEvasao(4, 3));
+checa("duas faltas com N=3 não é risco", !emRiscoDeEvasao(2, 3));
+
+console.log("\nChamada: última presença");
+
+checa("sem registro, nenhuma", ultimaPresenca([]) === null);
+checa("só faltas, nenhuma", ultimaPresenca([F("2026-09-01"), F("2026-09-03")]) === null);
+checa(
+  "a presença mais recente, fora de ordem e ignorando faltas posteriores",
+  ultimaPresenca([P("2026-09-08"), F("2026-09-15"), P("2026-09-01"), F("2026-09-10")]) ===
+    "2026-09-08",
+);
 
 console.log("\nChamada: limiar de faltas vindo da configuração");
 

@@ -2,13 +2,8 @@ import "server-only";
 
 import { StatusAluno, type Papel } from "@prisma/client";
 
-import {
-  CHAVE_FALTAS_ALERTA,
-  faltasConsecutivas,
-  limiarFaltas,
-  type RegistroPresenca,
-} from "@/lib/chamada";
-import { dataParaDia, diaParaData } from "@/lib/data";
+import { diaParaData } from "@/lib/data";
+import { frequenciaDosAlunos, lerLimiarFaltas } from "@/lib/frequencia";
 import { prisma } from "@/lib/prisma";
 import { selectAlunoPara } from "@/lib/selecaoAluno";
 
@@ -62,7 +57,7 @@ export async function carregarChamada(
 ): Promise<Chamada> {
   const data = diaParaData(dia);
 
-  const [gravados, config] = await Promise.all([
+  const [gravados, limiar] = await Promise.all([
     prisma.presenca.findMany({
       where: { turmaId, data },
       select: {
@@ -73,7 +68,7 @@ export async function carregarChamada(
         registradoPor: { select: { nome: true } },
       },
     }),
-    prisma.configuracao.findUnique({ where: { chave: CHAVE_FALTAS_ALERTA } }),
+    lerLimiarFaltas(),
   ]);
 
   const fechada = gravados.length > 0;
@@ -105,16 +100,10 @@ export async function carregarChamada(
     alunos = candidatos.filter((a) => !fora.has(a.id));
   }
 
-  const historico = await prisma.presenca.findMany({
-    where: { alunoId: { in: alunos.map((a) => a.id) }, data: { lte: data } },
-    select: { alunoId: true, data: true, presente: true },
-  });
-  const porAluno = new Map<string, RegistroPresenca[]>();
-  for (const h of historico) {
-    const lista = porAluno.get(h.alunoId) ?? [];
-    lista.push({ data: dataParaDia(h.data), presente: h.presente });
-    porAluno.set(h.alunoId, lista);
-  }
+  const frequencia = await frequenciaDosAlunos(
+    alunos.map((a) => a.id),
+    data,
+  );
 
   const gravadoPor = new Map(gravados.map((g) => [g.alunoId, g.presente]));
 
@@ -124,11 +113,11 @@ export async function carregarChamada(
       matricula: a.matricula,
       nome: a.nome,
       presente: gravadoPor.get(a.id) ?? true,
-      faltas: faltasConsecutivas(porAluno.get(a.id) ?? []),
+      faltas: frequencia.get(a.id)?.faltas ?? 0,
     })),
     lancamento: fechada ? resumirLancamento(gravados) : null,
     emOutraTurma,
-    limiar: limiarFaltas(config?.valor),
+    limiar,
   };
 }
 

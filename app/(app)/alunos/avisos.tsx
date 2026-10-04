@@ -1,8 +1,9 @@
-import { TriangleAlert } from "lucide-react";
+import { CalendarX, TriangleAlert } from "lucide-react";
 
 import type { Aviso } from "@/lib/avisosAluno";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { formatarDiaBr } from "@/lib/data";
 
 /**
  * Os avisos permanentes, como eles aparecem na tela.
@@ -39,6 +40,33 @@ export function SeloDeAvisos({ quantidade }: { quantidade: number }) {
     <Badge variant="destructive" title="Avisos no cadastro">
       <TriangleAlert />
       {quantidade}
+    </Badge>
+  );
+}
+
+/**
+ * Risco de evasão na linha da lista: o aluno ativo atingiu o N de faltas
+ * consecutivas configurado. Ícone diferente do selo de avisos, porque é outra
+ * coisa — frequência, não cadastro. Também só informa.
+ */
+export function SeloDeFaltas({
+  faltas,
+  ultimaPresenca,
+}: {
+  faltas: number;
+  ultimaPresenca: string | null;
+}) {
+  return (
+    <Badge
+      variant="destructive"
+      title={
+        ultimaPresenca
+          ? `Risco de evasão. Última presença em ${formatarDiaBr(ultimaPresenca)}.`
+          : "Risco de evasão. Nenhuma presença registrada."
+      }
+    >
+      <CalendarX />
+      {faltas} {faltas === 1 ? "falta" : "faltas"} seguidas
     </Badge>
   );
 }

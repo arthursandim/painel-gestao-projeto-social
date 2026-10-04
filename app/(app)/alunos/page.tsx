@@ -3,7 +3,7 @@ import { Plus, Search } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { SeloDeAvisos } from "./avisos";
+import { SeloDeAvisos, SeloDeFaltas } from "./avisos";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,8 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { exigirAcesso } from "@/lib/auth";
+import { emRiscoDeEvasao } from "@/lib/chamada";
 import { avisosDoAluno } from "@/lib/avisosAluno";
 import { dataParaDia, formatarDiaBr, hojeNoProjeto, idadeHoje } from "@/lib/data";
+import { frequenciaDosAlunos, lerLimiarFaltas } from "@/lib/frequencia";
 import { descreverGraduacao } from "@/lib/graduacao";
 import { podeEscreverAluno } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
@@ -37,6 +39,8 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
     FILTROS_STATUS.some((f) => f.valor === filtros.status)
       ? filtros.status
       : "ATIVO";
+  // Risco de evasão é sobre quem ocupa vaga: com o filtro ligado, só ativos.
+  const risco = filtros.risco === "1";
 
   const podeCadastrar = podeEscreverAluno(usuario.papeis);
 
@@ -53,7 +57,11 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
   });
 
   const where: Prisma.AlunoWhereInput = {
-    ...(status === "TODOS" ? {} : { status: status as StatusAluno }),
+    ...(risco
+      ? { status: StatusAluno.ATIVO }
+      : status === "TODOS"
+        ? {}
+        : { status: status as StatusAluno }),
     ...(turmaFiltro ? { turmaId: turmaFiltro } : {}),
     ...(q
       ? {
@@ -67,11 +75,25 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
 
   // O seletor único decide os campos. Nunca monte `select` à mão aqui: a tela
   // do professor precisa que a API devolva menos, não que o React esconda mais.
-  const alunos = await prisma.aluno.findMany({
+  const encontrados = await prisma.aluno.findMany({
     where,
     orderBy: { nome: "asc" },
     select: selectAlunoPara(usuario.papeis),
   });
+
+  // Frequência só dos ativos: desligado não está em risco de evadir, já saiu.
+  // Uma consulta de Presenca para todos, não uma por aluno.
+  const [frequencia, limiar] = await Promise.all([
+    frequenciaDosAlunos(
+      encontrados.filter((a) => a.status === StatusAluno.ATIVO).map((a) => a.id),
+    ),
+    lerLimiarFaltas(),
+  ]);
+  const emRisco = (id: string) => {
+    const f = frequencia.get(id);
+    return f && emRiscoDeEvasao(f.faltas, limiar) ? f : null;
+  };
+  const alunos = risco ? encontrados.filter((a) => emRisco(a.id)) : encontrados;
 
   const hoje = hojeNoProjeto();
 
@@ -119,7 +141,7 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
           navegador funciona e o link pode ser guardado. Sem JavaScript. */}
       <Card>
         <CardContent className="pt-6">
-          <form method="get" className="grid gap-3 md:grid-cols-[1fr_auto_auto_auto]">
+          <form method="get" className="grid gap-3 md:grid-cols-[1fr_auto_auto_auto_auto]">
             <div className="space-y-2">
               <Label htmlFor="q">Buscar</Label>
               <Input
@@ -165,6 +187,19 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
             </div>
 
             <div className="flex items-end">
+              <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="risco"
+                  value="1"
+                  defaultChecked={risco}
+                  className="size-5"
+                />
+                Só em risco de evasão
+              </label>
+            </div>
+
+            <div className="flex items-end">
               <Button type="submit" variant="secondary" className="min-h-11 w-full">
                 <Search className="size-4" />
                 Filtrar
@@ -178,6 +213,9 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
         {alunos.length === 0
           ? "Nenhum aluno com esses filtros."
           : `${alunos.length} ${alunos.length === 1 ? "aluno" : "alunos"}.`}
+        {risco
+          ? ` Ativos com ${limiar} ou mais faltas consecutivas — sequência, não soma. O limite é configurado em Parâmetros.`
+          : ""}
       </p>
 
       {/* Abaixo de 768 px a tabela vira cartões empilhados — nunca rolagem
@@ -188,6 +226,7 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
             { ...aluno, nascimento: dataParaDia(aluno.nascimento) },
             hoje,
           );
+          const faltas = emRisco(aluno.id);
           return (
             <li key={aluno.id}>
               <Link href={`/alunos/${aluno.id}`} className="block">
@@ -204,6 +243,16 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
                     <p className="text-muted-foreground text-sm">
                       {descreverGraduacao(aluno.graduacao, aluno.grau)}
                     </p>
+                    {faltas ? (
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <SeloDeFaltas {...faltas} />
+                        <span className="text-muted-foreground text-xs">
+                          {faltas.ultimaPresenca
+                            ? `Última presença ${formatarDiaBr(faltas.ultimaPresenca)}`
+                            : "Nenhuma presença registrada"}
+                        </span>
+                      </div>
+                    ) : null}
                     {aluno.status === StatusAluno.DESLIGADO ? (
                       <Badge variant="outline">Desligado</Badge>
                     ) : null}
@@ -228,6 +277,9 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
                   <th className="px-3 py-2 font-medium">Idade</th>
                   <th className="px-3 py-2 font-medium">Graduação</th>
                   <th className="px-3 py-2 font-medium">Situação</th>
+                  {risco ? (
+                    <th className="px-3 py-2 font-medium">Última presença</th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody>
@@ -236,6 +288,7 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
                     { ...aluno, nascimento: dataParaDia(aluno.nascimento) },
                     hoje,
                   );
+                  const faltas = emRisco(aluno.id);
                   return (
                     <tr key={aluno.id} className="hover:bg-muted/40 border-t">
                       <td className="px-3 py-2 font-mono text-xs">
@@ -261,12 +314,22 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
                         {descreverGraduacao(aluno.graduacao, aluno.grau)}
                       </td>
                       <td className="px-3 py-2">
-                        {aluno.status === StatusAluno.ATIVO ? (
-                          <Badge variant="secondary">Ativo</Badge>
-                        ) : (
-                          <Badge variant="outline">Desligado</Badge>
-                        )}
+                        <div className="flex flex-wrap items-center gap-2">
+                          {aluno.status === StatusAluno.ATIVO ? (
+                            <Badge variant="secondary">Ativo</Badge>
+                          ) : (
+                            <Badge variant="outline">Desligado</Badge>
+                          )}
+                          {faltas ? <SeloDeFaltas {...faltas} /> : null}
+                        </div>
                       </td>
+                      {risco ? (
+                        <td className="px-3 py-2">
+                          {faltas?.ultimaPresenca
+                            ? formatarDiaBr(faltas.ultimaPresenca)
+                            : "Nenhuma"}
+                        </td>
+                      ) : null}
                     </tr>
                   );
                 })}
