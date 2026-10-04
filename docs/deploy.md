@@ -40,10 +40,11 @@ Storage que o desenvolvimento.
 
 ## Depois do primeiro deploy
 
-1. Supabase → **Authentication → URL Configuration → Site URL**: trocar
-   `http://localhost:3000` pela URL de produção (`https://<projeto>.vercel.app`).
-   Os usuários são criados pelo admin com senha, sem e-mail de confirmação, mas
-   qualquer link que o Supabase gerar passa a apontar para o lugar certo.
+1. **Opcional.** Supabase → **Authentication → URL Configuration → Site URL**:
+   trocar `http://localhost:3000` pela URL de produção. O app não depende disso
+   — login por senha, usuários criados pelo admin, sem e-mail de confirmação,
+   convite nem "esqueci a senha". Só os links que o Supabase manda por e-mail
+   usam a Site URL (por exemplo, "Send password recovery" pelo painel dele).
 2. Cada `git push` na `main` publica sozinho.
 
 ## Checklist de teste em produção
