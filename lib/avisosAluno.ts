@@ -20,8 +20,7 @@ export type CodigoAviso =
   | "ESCALA"
   | "RESPONSAVEL"
   | "ESCOLA"
-  | "FICHA_MAIORIDADE"
-  | "CAPACIDADE";
+  | "FICHA_MAIORIDADE";
 
 export type Aviso = {
   codigo: CodigoAviso;
@@ -31,8 +30,8 @@ export type Aviso = {
 /**
  * O que um aviso precisa saber.
  *
- * Campos opcionais porque a visão do professor não traz `responsavelTipo` nem
- * a autorização de capacidade: o aviso correspondente simplesmente não aparece
+ * Campos opcionais porque a visão do professor não traz `responsavelTipo`: o
+ * aviso correspondente simplesmente não aparece
  * para ele, em vez de a função quebrar ou de alguém montar um `select` à mão
  * para alimentá-la.
  */
@@ -43,9 +42,6 @@ export type AlunoParaAviso = {
   responsavelTipo?: ResponsavelTipo | null;
   escola?: string | null;
   serie?: string | null;
-  acimaCapacidade?: boolean;
-  autorizacaoAcimaPor?: { nome: string } | null;
-  autorizacaoAcimaJustificativa?: string | null;
   /**
    * Preenchido a partir da tabela Documento, que só ganha tela na fase 5. Até
    * lá ninguém passa este campo e o aviso de maioridade não aparece — o que é
@@ -117,16 +113,9 @@ export function avisosDoAluno(
     });
   }
 
-  if (aluno.acimaCapacidade) {
-    const quem = aluno.autorizacaoAcimaPor?.nome ?? "um administrador";
-    const porque = aluno.autorizacaoAcimaJustificativa
-      ? ` Justificativa: ${aluno.autorizacaoAcimaJustificativa}`
-      : "";
-    avisos.push({
-      codigo: "CAPACIDADE",
-      texto: `Matrícula acima da capacidade da turma, autorizada por ${quem}.${porque}`,
-    });
-  }
+  // Matrícula acima da capacidade NÃO é aviso do cadastro (decisão de
+  // 2026-10-04): é fato da turma, e a autorização fica no histórico
+  // (/config/historico), não na tela do aluno.
 
   return avisos;
 }

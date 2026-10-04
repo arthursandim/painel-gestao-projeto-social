@@ -74,7 +74,7 @@ const rl = readline.createInterface({ input: stdin, output: stdout });
 // ---------------------------------------------------------------- contagem
 
 async function contar(): Promise<Record<Tabela, number>> {
-  const [emprestimo, presenca, documento, movimento, espera, convertidos, item, aluno] =
+  const [emprestimo, presenca, documento, movimento, espera, convertidos, eventos, item, aluno] =
     await Promise.all([
       prisma.emprestimo.count(),
       prisma.presenca.count(),
@@ -82,6 +82,7 @@ async function contar(): Promise<Record<Tabela, number>> {
       prisma.movimentoEstoque.count(),
       prisma.listaEspera.count(),
       prisma.listaEspera.count({ where: { alunoId: { not: null } } }),
+      prisma.eventoHistorico.count({ where: { tipo: "MATRICULA_ACIMA_CAPACIDADE" } }),
       prisma.item.count(),
       prisma.aluno.count(),
     ]);
@@ -92,6 +93,7 @@ async function contar(): Promise<Record<Tabela, number>> {
     MovimentoEstoque: movimento,
     ListaEspera: espera,
     ListaEsperaConvertidos: convertidos,
+    EventosDeMatricula: eventos,
     Item: item,
     Aluno: aluno,
   };
@@ -104,6 +106,7 @@ const ROTULO: Record<Tabela, string> = {
   MovimentoEstoque: "movimentos de estoque",
   ListaEspera: "registros da lista de espera",
   ListaEsperaConvertidos: "registros da espera convertidos em aluno",
+  EventosDeMatricula: "matrículas acima da capacidade no histórico",
   Item: "itens",
   Aluno: "alunos",
 };
@@ -240,6 +243,8 @@ async function main() {
             ListaEspera: () => tx.listaEspera.deleteMany(),
             ListaEsperaConvertidos: () =>
               tx.listaEspera.deleteMany({ where: { alunoId: { not: null } } }),
+            EventosDeMatricula: () =>
+              tx.eventoHistorico.deleteMany({ where: { tipo: "MATRICULA_ACIMA_CAPACIDADE" } }),
             Item: () => tx.item.deleteMany(),
             Aluno: () => tx.aluno.deleteMany(),
           } satisfies Record<Tabela, () => Promise<{ count: number }>>

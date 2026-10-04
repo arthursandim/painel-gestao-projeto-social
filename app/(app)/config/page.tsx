@@ -44,6 +44,18 @@ export default function ConfigPage() {
             </CardHeader>
           </Card>
         </Link>
+
+        <Link href="/config/historico" className="block">
+          <Card className="hover:border-foreground/30 h-full transition-colors">
+            <CardHeader>
+              <CardTitle className="text-base">Histórico</CardTitle>
+              <CardDescription>
+                Quem mudou capacidade e faltas, de quanto para quanto, e cada
+                matrícula autorizada acima da capacidade.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
       </div>
     </section>
   );

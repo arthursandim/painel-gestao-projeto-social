@@ -13,6 +13,7 @@ export type Tabela =
   | "Documento"
   | "MovimentoEstoque"
   | "ListaEsperaConvertidos"
+  | "EventosDeMatricula"
   | "ListaEspera"
   | "Item"
   | "Aluno";
@@ -39,8 +40,8 @@ export const GRUPOS: readonly Grupo[] = [
     id: "ALUNOS",
     titulo: "Alunos",
     explicacao:
-      "Alunos e tudo que aponta para eles: presenças, documentos, empréstimos e os registros da lista de espera já convertidos em aluno. Fotos dos alunos no bucket. Reinicia a matrícula em A0001.",
-    tabelas: ["Emprestimo", "Presenca", "Documento", "ListaEsperaConvertidos", "Aluno"],
+      "Alunos e tudo que aponta para eles: presenças, documentos, empréstimos, os registros da lista de espera já convertidos em aluno e as matrículas acima da capacidade no histórico. Fotos dos alunos no bucket. Reinicia a matrícula em A0001.",
+    tabelas: ["Emprestimo", "Presenca", "Documento", "ListaEsperaConvertidos", "EventosDeMatricula", "Aluno"],
     pastas: [
       { bucket: "fotos", prefixo: "alunos" },
       { bucket: "documentos", prefixo: "alunos" },
@@ -77,6 +78,7 @@ const ORDEM: readonly Tabela[] = [
   "MovimentoEstoque",
   "ListaEspera",
   "ListaEsperaConvertidos",
+  "EventosDeMatricula",
   "Item",
   "Aluno",
 ];

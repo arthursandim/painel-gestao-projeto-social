@@ -92,14 +92,7 @@ export default async function AlunoPage({
   // URL assinada de vida curta, gerada a cada visita. O professor também vê.
   const urlFoto = await urlDaFoto(aluno.fotoPath);
 
-  const avisos = avisosDoAluno(
-    {
-      ...aluno,
-      nascimento: nascimentoIso,
-      autorizacaoAcimaPor: completo?.autorizacaoAcimaPor,
-    },
-    hoje,
-  );
+  const avisos = avisosDoAluno({ ...aluno, nascimento: nascimentoIso }, hoje);
 
   const menor = idade < IDADE_MAIORIDADE;
   const responsavel = completo && menor ? responsavelDoAluno(completo) : null;

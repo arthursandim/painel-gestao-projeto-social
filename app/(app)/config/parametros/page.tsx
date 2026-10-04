@@ -1,7 +1,10 @@
+import { History } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { FormParametros } from "./formulario";
 import { BotaoVoltar } from "@/components/botao-voltar";
+import { Button } from "@/components/ui/button";
 import { CHAVE_FALTAS_ALERTA, limiarFaltas } from "@/lib/chamada";
 import { formatarMomentoBr } from "@/lib/data";
 import { ocupacaoDasTurmas } from "@/lib/ocupacao";
@@ -51,6 +54,12 @@ export default async function ParametrosPage() {
           o aluno no alerta de risco de evasão. O alerta só sinaliza: ninguém é
           desligado nem movido por causa destes números.
         </p>
+        <Button asChild variant="outline" className="mt-2 min-h-11 self-start">
+          <Link href="/config/historico">
+            <History className="size-4" />
+            Histórico de alterações
+          </Link>
+        </Button>
       </div>
 
       <FormParametros

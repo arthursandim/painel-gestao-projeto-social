@@ -42,6 +42,7 @@ import {
   ROTULO_ESCALA,
   ROTULO_GRADUACAO,
 } from "../../lib/graduacao";
+import { eventoMatriculaAcima } from "../../lib/historico";
 import { proximaMatricula } from "../../lib/matricula";
 import { ROTULO_RESPONSAVEL_TIPO } from "../../lib/responsavel";
 import { ROTULO_TIPO_SANGUINEO } from "../../lib/saude";
@@ -79,6 +80,8 @@ export type Linha = {
   dados?: DadosAluno;
   turma?: TurmaImportacao;
   acimaCapacidade?: boolean;
+  /** Ativos na turma antes desta linha — para o histórico ("41/40"). */
+  ativosAntes?: number;
 };
 
 export type Analise = {
@@ -492,6 +495,7 @@ function conferirCapacidade(linhas: Linha[], ctx: Contexto) {
       linha.erros.push(`${cheia} Para autorizar, rode de novo com --justificativa="..."; ela fica gravada no cadastro.`);
     } else {
       linha.acimaCapacidade = true;
+      linha.ativosAntes = atual;
       linha.avisos.push(`${cheia} Entra acima da capacidade, autorizado por ${ctx.autor.nome}.`);
     }
   }
@@ -528,7 +532,8 @@ export async function gravar(
     const { nascimento, graduacaoData, rgDataEmissao, ...resto } = linha.dados!;
     const matricula = await proximaMatricula(db);
 
-    await db.aluno.create({
+    const criado = await db.aluno.create({
+      select: { id: true },
       data: {
         ...resto,
         nascimento: diaParaData(nascimento),
@@ -548,6 +553,19 @@ export async function gravar(
           : {}),
       },
     });
+    // Exceção de capacidade: histórico da turma, na mesma transação do aluno.
+    if (linha.acimaCapacidade && linha.turma) {
+      await db.eventoHistorico.create({
+        data: eventoMatriculaAcima({
+          turmaId: linha.turma.id,
+          alunoId: criado.id,
+          ativosAntes: linha.ativosAntes ?? linha.turma.capacidade,
+          capacidade: linha.turma.capacidade,
+          justificativa: ctx.justificativa ?? "",
+          autorId: ctx.autor.id,
+        }),
+      });
+    }
     gravados.push({ numero: linha.numero, matricula, nome: linha.nome });
   }
 

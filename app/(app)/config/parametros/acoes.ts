@@ -1,6 +1,6 @@
 "use server";
 
-import { Papel } from "@prisma/client";
+import { Papel, TipoEventoHistorico } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
 import { exigirPapeis } from "@/lib/auth";
@@ -36,11 +36,13 @@ export async function salvarParametros(
     select: { id: true, nome: true, capacidade: true },
   });
 
-  const capacidades: { id: string; capacidade: number }[] = [];
+  const capacidades: { id: string; capacidade: number; anterior: number }[] = [];
   for (const turma of turmas) {
     const r = lerInteiro(esquemaCapacidade(turma.nome), form.get(`capacidade_${turma.id}`));
     if (!r.success) return { erro: r.error.issues[0].message };
-    if (r.data !== turma.capacidade) capacidades.push({ id: turma.id, capacidade: r.data });
+    if (r.data !== turma.capacidade) {
+      capacidades.push({ id: turma.id, capacidade: r.data, anterior: turma.capacidade });
+    }
   }
 
   const atual = await prisma.configuracao.findUnique({
@@ -60,6 +62,19 @@ export async function salvarParametros(
         data: { capacidade: c.capacidade, atualizadoPorId: autor.id },
       }),
     ),
+    // Histórico (/config/historico): cada valor que mudou, com o de antes, na
+    // mesma transação — mudança sem registro não acontece.
+    ...capacidades.map((c) =>
+      prisma.eventoHistorico.create({
+        data: {
+          tipo: TipoEventoHistorico.CAPACIDADE_ALTERADA,
+          turmaId: c.id,
+          valorAnterior: String(c.anterior),
+          valorNovo: String(c.capacidade),
+          autorId: autor.id,
+        },
+      }),
+    ),
     ...(faltasMudou
       ? [
           prisma.configuracao.upsert({
@@ -73,11 +88,20 @@ export async function salvarParametros(
               atualizadoPorId: autor.id,
             },
           }),
+          prisma.eventoHistorico.create({
+            data: {
+              tipo: TipoEventoHistorico.FALTAS_ALTERADO,
+              valorAnterior: atual?.valor ?? null,
+              valorNovo: String(faltas.data),
+              autorId: autor.id,
+            },
+          }),
         ]
       : []),
   ]);
 
   revalidatePath("/config/parametros");
   revalidatePath("/painel");
+  revalidatePath("/config/historico");
   return { ok: "Parâmetros salvos." };
 }

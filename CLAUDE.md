@@ -98,7 +98,7 @@ Implementação: um único seletor no backend, `selectAlunoPara(papel)`, decide 
 
 ## Modelo de dados
 
-Entidades: `Usuario`, `Turma`, `Aluno`, `Presenca`, `Documento`, `ListaEspera`, `Item`, `Emprestimo`, `MovimentoEstoque`, `Configuracao`.
+Entidades: `Usuario`, `Turma`, `Aluno`, `Presenca`, `Documento`, `ListaEspera`, `Item`, `Emprestimo`, `MovimentoEstoque`, `Configuracao`, `EventoHistorico`.
 
 ### Regras estruturais
 
@@ -227,7 +227,7 @@ Faixas permanentes enquanto a situação persistir. **Informam, nunca agem, e n�
 - Aluno que completou 18 anos com ficha de menor vigente
 - Menor de idade sem responsável legal definido
 - Documento obrigatório faltando
-- Matrícula acima da capacidade, com o nome de quem autorizou
+- ~~Matrícula acima da capacidade, com o nome de quem autorizou~~ — **saiu dos avisos em 2026-10-04** (decisão do desenvolvedor): é fato da turma, não do aluno. A autorização vai para o histórico em `/config/historico` (ver "Lista de espera › Histórico de parâmetros"); as colunas `autorizacaoAcima*` continuam no `Aluno`, mas a tela dele não as mostra
 
 Do painel, o card leva à lista e de lá ao cadastro. **Nunca executa a ação.**
 
@@ -400,6 +400,18 @@ Parâmetros editáveis em tela, só por admin:
 A conversão **não é bloqueada** com a turma cheia, mas **exige autorização explícita de um admin**. O sistema registra quem autorizou, quando e a justificativa. A turma passa a mostrar ocupação acima do limite (41/40), deixando a exceção visível. O papel `INSCRICOES` sozinho não consegue estourar a turma.
 
 Faixas da tela `/config/parametros` (decididas na fase 7): N de faltas de **1 a 10**; capacidade de 1 a 200. Capacidade **abaixo da ocupação atual é permitida**, com aviso antes de salvar — ninguém é desligado, a turma só passa a aparecer acima do limite. Só o valor que mudou é gravado, com autor e timestamp (`Turma.atualizadoPorId`, `Configuracao.atualizadoPorId`).
+
+### Histórico de parâmetros
+
+Decidido em 2026-10-04. Tabela `EventoHistorico`, que **só cresce**, e tela `/config/historico`, **só ADMIN**, com filtro por turma e por tipo; atalhos em `/config` e em `/config/parametros`. Três eventos, cada um gravado **na mesma transação** da mudança, com quem e quando:
+
+| Evento | Onde | Guarda |
+| --- | --- | --- |
+| Capacidade alterada | Turma | De quanto para quanto |
+| Faltas para alerta alterado | Projeto (sem turma) | De quanto para quanto |
+| Matrícula acima da capacidade | Turma e aluno | Ocupação resultante (`41/40`) e justificativa |
+
+A matrícula acima nasce no cadastro, na troca de turma, na reativação e na importação (`lib/historico.ts`, `eventoMatriculaAcima`). A migration recuperou as autorizações que já existiam no cadastro dos alunos, sem a ocupação daquele momento. Alterações de parâmetro anteriores a 2026-10-04 não têm histórico: só o último autor ficou gravado.
 
 ### Decisões da fase 7
 
@@ -662,7 +674,7 @@ Decidido em 2026-10-04: existe **um só projeto Supabase**, o do `.env.local`, e
 - **Interativo.** Mostra o ambiente, o projeto Supabase, o host do banco e quanto existe em cada grupo; pergunta o que apagar; mostra o plano final; só executa depois de a pessoa digitar o identificador do projeto. Sem terminal interativo, recusa. `--listar` só mostra, sem perguntar
 - **Ambiente:** `--ambiente=dev` (padrão) lê `.env.local`; `--ambiente=prd` lê `.env.production.local`. Hoje os dois apontam para o mesmo banco único; a flag existe para o dia em que houver dois
 - **Grupos, cada um com o que depende dele:**
-  1. *Alunos* — alunos, presenças, documentos, empréstimos, os registros da espera convertidos em aluno, `fotos/alunos/` e `documentos/alunos/`. **Reinicia `Aluno_matricula_seq`**, para o próximo aluno ser `A0001`
+  1. *Alunos* — alunos, presenças, documentos, empréstimos, os registros da espera convertidos em aluno, as matrículas acima da capacidade no histórico, `fotos/alunos/` e `documentos/alunos/`. **Reinicia `Aluno_matricula_seq`**, para o próximo aluno ser `A0001`
   2. *Lista de espera* — a fila inteira
   3. *Inventário* — itens, movimentos e empréstimos, `fotos/itens/`
 - **Nunca apaga** `Turma` (com capacidades), `Configuracao`, `Usuario` nem o vínculo com o Supabase Auth. O menu nem os oferece

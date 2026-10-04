@@ -34,6 +34,7 @@ export const RELACOES_DE_AUTORIA = {
   movimentosRegistrados: "movimentos de estoque",
   configuracoesAtualizadas: "parâmetros alterados",
   turmasAtualizadas: "capacidades de turma alteradas",
+  eventosHistorico: "registros no histórico de parâmetros",
 } as const satisfies Partial<Record<keyof Prisma.UsuarioCountOutputTypeSelect, string>>;
 
 export type RelacaoDeAutoria = keyof typeof RELACOES_DE_AUTORIA;

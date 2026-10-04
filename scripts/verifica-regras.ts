@@ -73,6 +73,7 @@ import {
   PARAGRAFOS_CESSAO,
   PARAGRAFOS_TERMO_ADULTO,
 } from "../lib/textosFicha";
+import { descreverEvento, eventoMatriculaAcima, ocupacaoResultante } from "../lib/historico";
 import { formatarMatricula } from "../lib/matricula";
 import {
   interpretarEscolha,
@@ -442,20 +443,22 @@ checa(
   ).some((a) => a.codigo === "FICHA_MAIORIDADE"),
 );
 
+// Acima da capacidade é fato da turma (decisão de 2026-10-04): vai para o
+// histórico em /config/historico, não para os avisos do cadastro. O registro
+// vem do banco com as colunas de autorização; elas não podem virar aviso.
+const alunoAcimaDaCapacidade = {
+  nascimento: "2000-01-01",
+  graduacao: Graduacao.ADULTO_AZUL,
+  turma: JOVENS,
+  responsavelTipo: null,
+  acimaCapacidade: true,
+  autorizacaoAcimaPor: { nome: "Fulano" },
+  autorizacaoAcimaJustificativa: "Irmão de aluno.",
+};
+const avisosAcima = avisosDoAluno(alunoAcimaDaCapacidade, "2026-09-19");
 checa(
-  "acima da capacidade nomeia quem autorizou",
-  avisosDoAluno(
-    {
-      nascimento: "2000-01-01",
-      graduacao: Graduacao.ADULTO_AZUL,
-      turma: JOVENS,
-      responsavelTipo: null,
-      acimaCapacidade: true,
-      autorizacaoAcimaPor: { nome: "Fulano" },
-      autorizacaoAcimaJustificativa: "Irmão de aluno.",
-    },
-    "2026-09-19",
-  ).some((a) => a.codigo === "CAPACIDADE" && a.texto.includes("Fulano")),
+  "acima da capacidade não vira aviso no cadastro do aluno",
+  !avisosAcima.some((a) => a.texto.includes("capacidade") || a.texto.includes("Fulano")),
 );
 checa(
   "nenhum aviso carrega botão de ação",
@@ -1263,6 +1266,40 @@ checa("URL que não é do Supabase é recusada", projetoDaUrl("https://exemplo.c
 checa("sem flag é dev", lerAmbiente([]) === "dev");
 checa("--ambiente=prd", lerAmbiente(["--ambiente=prd"]) === "prd");
 checa("ambiente estranho é recusado", lerAmbiente(["--ambiente=producao"]) === null);
+
+console.log("\nHistórico de parâmetros e exceções de turma");
+
+checa("ocupação resultante conta a matrícula nova", ocupacaoResultante(40, 40) === "41/40");
+checa(
+  "capacidade descreve de quanto para quanto",
+  descreverEvento({ tipo: "CAPACIDADE_ALTERADA", valorAnterior: "40", valorNovo: "45" }) === "Capacidade de 40 para 45 vagas",
+);
+checa(
+  "faltas descreve de quanto para quanto",
+  descreverEvento({ tipo: "FALTAS_ALTERADO", valorAnterior: "3", valorNovo: "4" }).includes("de 3 para 4"),
+);
+checa(
+  "matrícula acima mostra a ocupação",
+  descreverEvento({ tipo: "MATRICULA_ACIMA_CAPACIDADE", valorAnterior: null, valorNovo: "41/40" }) === "Turma passou a 41/40",
+);
+checa(
+  "matrícula acima recuperada sem ocupação não inventa número",
+  !/\d/.test(descreverEvento({ tipo: "MATRICULA_ACIMA_CAPACIDADE", valorAnterior: null, valorNovo: null })),
+);
+const evento = eventoMatriculaAcima({
+  turmaId: "t",
+  alunoId: "a",
+  ativosAntes: 41,
+  capacidade: 40,
+  justificativa: "Irmão de aluno.",
+  autorId: "u",
+});
+checa("evento de matrícula acima leva turma, aluno, justificativa e autor", evento.turmaId === "t" && evento.alunoId === "a" && evento.justificativa === "Irmão de aluno." && evento.autorId === "u" && evento.valorNovo === "42/40");
+
+const planoAlunos = montarPlano(["ALUNOS"]).tabelas;
+checa("limpar alunos leva as matrículas acima da capacidade do histórico", planoAlunos.includes("EventosDeMatricula"));
+checa("e antes de apagar os alunos", planoAlunos.indexOf("EventosDeMatricula") < planoAlunos.indexOf("Aluno"));
+checa("limpar inventário não toca no histórico", !montarPlano(["INVENTARIO"]).tabelas.includes("EventosDeMatricula"));
 
 console.log(
   falhas === 0

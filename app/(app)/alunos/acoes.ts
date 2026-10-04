@@ -16,6 +16,7 @@ import {
   type DadosAluno,
 } from "@/lib/esquemaAluno";
 import { caminhoFotoAluno } from "@/lib/fotos";
+import { eventoMatriculaAcima } from "@/lib/historico";
 import { campoDuplicado, proximaMatricula } from "@/lib/matricula";
 import { ehAdmin, PAPEIS_ESCRITA_ALUNO } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
@@ -300,6 +301,20 @@ export async function criarAluno(
           select: { id: true, matricula: true },
         });
 
+        // Exceção de capacidade: vai para o histórico da turma, junto com o aluno.
+        if (capacidade.autorizacao.acimaCapacidade) {
+          await tx.eventoHistorico.create({
+            data: eventoMatriculaAcima({
+              turmaId: medida.turma.id,
+              alunoId: aluno.id,
+              ativosAntes: medida.ocupacao,
+              capacidade: medida.turma.capacidade,
+              justificativa: capacidade.autorizacao.autorizacaoAcimaJustificativa ?? "",
+              autorId: autor.id,
+            }),
+          });
+        }
+
         if (esperaId) {
           await tx.listaEspera.update({
             where: { id: esperaId },
@@ -392,6 +407,8 @@ export async function atualizarAluno(
     autorizacaoAcimaEm: atual.autorizacaoAcimaEm,
     autorizacaoAcimaJustificativa: atual.autorizacaoAcimaJustificativa,
   };
+  // Autorização nova nesta edição (troca para turma cheia): vai para o histórico.
+  let eventoAcima: ReturnType<typeof eventoMatriculaAcima> | null = null;
 
   if (dados.turmaId !== atual.turmaId) {
     const medida = await medirOcupacao(dados.turmaId, atual.id);
@@ -402,20 +419,33 @@ export async function atualizarAluno(
       const capacidade = resolverCapacidade(medida, autor.papeis, autor.id, form);
       if (!("autorizacao" in capacidade)) return capacidade;
       autorizacao = capacidade.autorizacao;
+      if (autorizacao.acimaCapacidade) {
+        eventoAcima = eventoMatriculaAcima({
+          turmaId: medida.turma.id,
+          alunoId: atual.id,
+          ativosAntes: medida.ocupacao,
+          capacidade: medida.turma.capacidade,
+          justificativa: autorizacao.autorizacaoAcimaJustificativa ?? "",
+          autorId: autor.id,
+        });
+      }
     } else {
       autorizacao = SEM_AUTORIZACAO;
     }
   }
 
   try {
-    await prisma.aluno.update({
-      where: { id: atual.id },
-      data: {
-        ...paraBanco(dados, ehMaiorDeIdade(dados.nascimento)),
-        ...autorizacao,
-        atualizadoPorId: autor.id,
-      },
-    });
+    await prisma.$transaction([
+      prisma.aluno.update({
+        where: { id: atual.id },
+        data: {
+          ...paraBanco(dados, ehMaiorDeIdade(dados.nascimento)),
+          ...autorizacao,
+          atualizadoPorId: autor.id,
+        },
+      }),
+      ...(eventoAcima ? [prisma.eventoHistorico.create({ data: eventoAcima })] : []),
+    ]);
   } catch (erro) {
     if (campoDuplicado(erro) === "cpf") {
       return { erro: "Este CPF já está cadastrado em outro aluno." };
@@ -487,17 +517,34 @@ export async function alternarStatusAluno(
   // O motivo do desligamento anterior é limpo junto com o status. A v1 não
   // guarda histórico de desligamentos — se a diretoria precisar dele, o certo
   // é uma tabela própria, não deixar dois campos se contradizendo nesta linha.
-  await prisma.aluno.update({
-    where: { id: aluno.id },
-    data: {
-      status: StatusAluno.ATIVO,
-      desligadoEm: null,
-      desligadoMotivo: null,
-      desligadoPorId: null,
-      ...capacidade.autorizacao,
-      atualizadoPorId: autor.id,
-    },
-  });
+  await prisma.$transaction([
+    prisma.aluno.update({
+      where: { id: aluno.id },
+      data: {
+        status: StatusAluno.ATIVO,
+        desligadoEm: null,
+        desligadoMotivo: null,
+        desligadoPorId: null,
+        ...capacidade.autorizacao,
+        atualizadoPorId: autor.id,
+      },
+    }),
+    // Reativar numa turma cheia é exceção de capacidade: histórico da turma.
+    ...(capacidade.autorizacao.acimaCapacidade
+      ? [
+          prisma.eventoHistorico.create({
+            data: eventoMatriculaAcima({
+              turmaId: medida.turma.id,
+              alunoId: aluno.id,
+              ativosAntes: medida.ocupacao,
+              capacidade: medida.turma.capacidade,
+              justificativa: capacidade.autorizacao.autorizacaoAcimaJustificativa ?? "",
+              autorId: autor.id,
+            }),
+          }),
+        ]
+      : []),
+  ]);
 
   revalidatePath("/alunos");
   revalidatePath(`/alunos/${aluno.id}`);

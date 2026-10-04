@@ -121,6 +121,12 @@ enum TipoMovimento {
   SAIDA
 }
 
+enum TipoEventoHistorico {
+  CAPACIDADE_ALTERADA
+  FALTAS_ALTERADO
+  MATRICULA_ACIMA_CAPACIDADE
+}
+
 // ---------------------------------------------------------------- usuário
 
 model Usuario {
@@ -158,6 +164,7 @@ model Usuario {
   movimentosRegistrados    MovimentoEstoque[]
   configuracoesAtualizadas Configuracao[]
   turmasAtualizadas        Turma[]            @relation("TurmaAtualizadaPor")
+  eventosHistorico         EventoHistorico[]  @relation("EventoHistoricoAutor")
 
   @@index([ativo])
 }
@@ -188,6 +195,7 @@ model Turma {
   alunos      Aluno[]
   presencas   Presenca[]
   listaEspera ListaEspera[]
+  historico   EventoHistorico[]
 }
 
 // ---------------------------------------------------------------- aluno
@@ -284,6 +292,7 @@ model Aluno {
   documentos   Documento[]
   emprestimos  Emprestimo[]
   origemEspera ListaEspera?
+  historico    EventoHistorico[]
 
   @@index([turmaId, status])
   @@index([status])
@@ -487,4 +496,37 @@ model Configuracao {
   atualizadoPorId String?  @db.Uuid
   atualizadoPor   Usuario? @relation(fields: [atualizadoPorId], references: [id])
   atualizadoEm    DateTime @updatedAt
+}
+
+/// Histórico de parâmetros e exceções de turma (decidido em 2026-10-04). Só
+/// cresce: cada alteração de capacidade, do N de faltas e cada matrícula
+/// acima da capacidade vira uma linha, com antes, depois, quem e quando. Lido
+/// em /config/historico, só pelo admin. A exceção de capacidade é fato da
+/// turma, não aviso do cadastro do aluno.
+model EventoHistorico {
+  id String @id @default(uuid()) @db.Uuid
+
+  tipo TipoEventoHistorico
+
+  /// Capacidade e matrícula acima: a turma. Faltas é do projeto: nulo.
+  turmaId String? @db.Uuid
+  turma   Turma?  @relation(fields: [turmaId], references: [id])
+
+  /// Só na matrícula acima da capacidade.
+  alunoId String? @db.Uuid
+  aluno   Aluno?  @relation(fields: [alunoId], references: [id])
+
+  /// Capacidade e faltas: o valor de antes e o de depois. Matrícula acima: a
+  /// ocupação que a turma passou a ter, como "41/40".
+  valorAnterior String?
+  valorNovo     String?
+  justificativa String?
+
+  autorId String?  @db.Uuid
+  autor   Usuario? @relation("EventoHistoricoAutor", fields: [autorId], references: [id])
+
+  criadoEm DateTime @default(now())
+
+  @@index([criadoEm])
+  @@index([turmaId, criadoEm])
 }
