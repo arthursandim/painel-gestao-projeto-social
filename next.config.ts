@@ -32,6 +32,12 @@ const nextConfig: NextConfig = {
     // rota negada responder 403 de verdade, e não um 200 com tela vazia nem um
     // 404 que mentiria dizendo que a rota não existe.
     authInterrupts: true,
+
+    // A foto (aluno e item) chega por Server Action. O navegador a reduz para
+    // ~150 kB, mas o servidor aceita até 1 MB (lib/fotos.ts) e o envelope do
+    // formulário soma alguns bytes: com o padrão de 1 MB, a foto no limite
+    // seria recusada pelo Next antes de chegar à mensagem do app.
+    serverActions: { bodySizeLimit: "2mb" },
   },
 };
 

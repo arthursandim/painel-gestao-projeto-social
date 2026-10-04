@@ -248,6 +248,8 @@ Pontos que quebram e precisam estar no código desde o início:
 
 Tratamento da imagem: redimensionar no navegador antes do upload (lado maior 1024 px, JPEG, ~150 kB). Uma foto vigente por aluno, substituível, **sem histórico**. A foto **não** entra na tabela de documentos — é campo próprio no cadastro, porque a lista de documentos é a trilha legal auditável.
 
+Implementado na fase 8, com a foto do item: `components/captura-foto.tsx` (câmera e arquivo, comum aos dois), `components/quadro-foto.tsx`, regras puras em `lib/fotos.ts` e Storage em `lib/storageFotos.ts`. Bucket privado `fotos`, criado por `npm run storage:preparar` (idempotente; só JPEG, até 1 MB). Caminhos `alunos/{matricula}.jpg` e `itens/{id}.jpg`, sobrescritos na troca. Grava a foto do aluno quem escreve aluno (`ADMIN`, `INSCRICOES`); o professor vê. A foto é mostrada com `<img>` cru e URL assinada de 5 minutos — nunca `next/image`, que guardaria a imagem em cache no servidor.
+
 ---
 
 ## Ficha impressa

@@ -22,10 +22,12 @@ import {
   motivoDaPerda,
   MOTIVO_CADASTRO,
 } from "@/lib/estoque";
+import { caminhoFotoItem } from "@/lib/fotos";
 import { contagemDoItem, travarItem } from "@/lib/inventario";
 import { ehAdmin, papeisDaRota } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
 import { alunoParaEmprestimo, SELECAO_EMPRESTIMO } from "@/lib/selecaoAluno";
+import { gravarFoto, lerFotoDoForm } from "@/lib/storageFotos";
 
 export type EstadoItem = { erro?: string; ok?: string };
 
@@ -338,4 +340,30 @@ export async function marcarPerdido(_estado: EstadoItem, form: FormData): Promis
 
   revalidatePath("/inventario", "layout");
   return resultado;
+}
+
+/** Foto do item: uma vigente, substituível, sem histórico. Inativo também pode. */
+export async function enviarFotoItem(_estado: EstadoItem, form: FormData): Promise<EstadoItem> {
+  const autor = await exigirPapeis(PAPEIS_INVENTARIO);
+
+  const id = z.uuid().safeParse(form.get("id"));
+  if (!id.success) return { erro: "Item inválido." };
+
+  const foto = await lerFotoDoForm(form);
+  if ("erro" in foto) return foto;
+
+  const item = await prisma.item.findUnique({ where: { id: id.data }, select: { id: true } });
+  if (!item) return { erro: "Item não encontrado." };
+
+  const caminho = caminhoFotoItem(item.id);
+  const falha = await gravarFoto(caminho, foto.bytes);
+  if (falha) return { erro: `Não foi possível gravar a foto: ${falha}` };
+
+  await prisma.item.update({
+    where: { id: item.id },
+    data: { fotoPath: caminho, atualizadoPorId: autor.id },
+  });
+
+  revalidatePath(`/inventario/${item.id}`);
+  return { ok: "Foto salva." };
 }

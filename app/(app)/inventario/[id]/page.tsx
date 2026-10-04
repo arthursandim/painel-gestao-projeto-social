@@ -7,7 +7,10 @@ import { FormAtivoItem } from "./form-ativo";
 import { FormEmprestar } from "./form-emprestar";
 import { FormMovimento } from "./form-movimento";
 import { ListaEmprestimos } from "../lista-emprestimos";
+import { enviarFotoItem } from "../acoes";
 import { BotaoVoltar } from "@/components/botao-voltar";
+import { CapturaFoto } from "@/components/captura-foto";
+import { QuadroFoto } from "@/components/quadro-foto";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +21,7 @@ import { abaixoDoMinimo, ROTULO_ESTADO, ROTULO_TIPO_MOVIMENTO } from "@/lib/esto
 import { alunosParaEmprestar, contagemDoItem, emprestimosParaTela } from "@/lib/inventario";
 import { ehAdmin } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
+import { urlDaFoto } from "@/lib/storageFotos";
 
 export const metadata: Metadata = { title: "Item — Engenho Cidadão" };
 
@@ -40,6 +44,7 @@ export default async function ItemPage({ params }: PageProps<"/inventario/[id]">
         estadoConservacao: true,
         podeSerEmprestado: true,
         ativo: true,
+        fotoPath: true,
         criadoEm: true,
         atualizadoEm: true,
         criadoPor: { select: { nome: true } },
@@ -66,6 +71,7 @@ export default async function ItemPage({ params }: PageProps<"/inventario/[id]">
 
   const baixo = abaixoDoMinimo(contagem.total, item.quantidadeMinima);
   const hoje = hojeNoProjeto();
+  const urlFoto = await urlDaFoto(item.fotoPath);
   const podeEmprestar = item.ativo && item.podeSerEmprestado && contagem.disponivel > 0;
   // A lista de alunos só é lida quando o formulário aparece.
   const alunos = podeEmprestar ? await alunosParaEmprestar() : [];
@@ -75,15 +81,21 @@ export default async function ItemPage({ params }: PageProps<"/inventario/[id]">
     <section className="space-y-6">
       <div className="flex flex-col space-y-1">
         <BotaoVoltar href="/inventario">Inventário</BotaoVoltar>
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-semibold">{item.descricao}</h1>
-          {!item.ativo ? <Badge variant="outline">Inativo</Badge> : null}
-          {item.podeSerEmprestado ? <Badge variant="secondary">Emprestável</Badge> : null}
-          {baixo ? <Badge variant="destructive">Abaixo do mínimo</Badge> : null}
+        <div className="flex items-start gap-4">
+          <QuadroFoto url={urlFoto} alt={`Foto de ${item.descricao}`} />
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-semibold">{item.descricao}</h1>
+              {!item.ativo ? <Badge variant="outline">Inativo</Badge> : null}
+              {item.podeSerEmprestado ? <Badge variant="secondary">Emprestável</Badge> : null}
+              {baixo ? <Badge variant="destructive">Abaixo do mínimo</Badge> : null}
+            </div>
+            <p className="text-muted-foreground text-sm">
+              {[item.categoria, item.identificacao].filter(Boolean).join(" · ") || "Sem categoria"}
+            </p>
+            <CapturaFoto id={item.id} acao={enviarFotoItem} temFoto={Boolean(item.fotoPath)} />
+          </div>
         </div>
-        <p className="text-muted-foreground text-sm">
-          {[item.categoria, item.identificacao].filter(Boolean).join(" · ") || "Sem categoria"}
-        </p>
       </div>
 
       {/* Faixas permanentes enquanto a situação persistir: a exceção que o

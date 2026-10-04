@@ -15,9 +15,12 @@ import {
   esquemaStatusAluno,
   type DadosAluno,
 } from "@/lib/esquemaAluno";
+import { caminhoFotoAluno } from "@/lib/fotos";
 import { campoDuplicado, proximaMatricula } from "@/lib/matricula";
 import { ehAdmin, PAPEIS_ESCRITA_ALUNO } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
+import { selectAlunoPara } from "@/lib/selecaoAluno";
+import { gravarFoto, lerFotoDoForm } from "@/lib/storageFotos";
 import { chaveDeNome } from "@/lib/validacoes";
 
 export type EstadoAluno = {
@@ -488,4 +491,41 @@ export async function alternarStatusAluno(
   revalidatePath("/alunos");
   revalidatePath(`/alunos/${aluno.id}`);
   return { ok: `${aluno.nome} voltou para a turma.` };
+}
+
+/**
+ * Foto do aluno: uma vigente, substituível, sem histórico, fora da tabela de
+ * documentos. Grava quem escreve aluno (ADMIN e INSCRICOES); o professor vê.
+ */
+export async function enviarFotoAluno(
+  _estado: { erro?: string; ok?: string },
+  form: FormData,
+): Promise<{ erro?: string; ok?: string }> {
+  const autor = await exigirPapeis(PAPEIS_ESCRITA_ALUNO);
+
+  const id = z.uuid().safeParse(form.get("id"));
+  if (!id.success) return { erro: "Aluno inválido." };
+
+  const foto = await lerFotoDoForm(form);
+  if ("erro" in foto) return foto;
+
+  // Toda leitura de Aluno passa pelo seletor único; daqui só sai a matrícula,
+  // que dá o caminho do arquivo.
+  const aluno = await prisma.aluno.findUnique({
+    where: { id: id.data },
+    select: selectAlunoPara(autor.papeis),
+  });
+  if (!aluno) return { erro: "Aluno não encontrado." };
+
+  const caminho = caminhoFotoAluno(aluno.matricula);
+  const falha = await gravarFoto(caminho, foto.bytes);
+  if (falha) return { erro: `Não foi possível gravar a foto: ${falha}` };
+
+  await prisma.aluno.update({
+    where: { id: id.data },
+    data: { fotoPath: caminho, atualizadoPorId: autor.id },
+  });
+
+  revalidatePath(`/alunos/${id.data}`);
+  return { ok: "Foto salva." };
 }

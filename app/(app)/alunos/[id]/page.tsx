@@ -4,9 +4,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { enviarFotoAluno } from "../acoes";
 import { ListaDeAvisos } from "../avisos";
 import { FormStatusAluno } from "./form-status";
 import { BotaoVoltar } from "@/components/botao-voltar";
+import { CapturaFoto } from "@/components/captura-foto";
+import { QuadroFoto } from "@/components/quadro-foto";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +30,7 @@ import { prisma } from "@/lib/prisma";
 import { responsavelDoAluno } from "@/lib/responsavel";
 import { ROTULO_TIPO_SANGUINEO, temDadosDeSaude } from "@/lib/saude";
 import { ehAlunoCompleto, selectAlunoPara } from "@/lib/selecaoAluno";
+import { urlDaFoto } from "@/lib/storageFotos";
 
 export const metadata: Metadata = { title: "Aluno — Engenho Cidadão" };
 
@@ -85,6 +89,8 @@ export default async function AlunoPage({
 
   const completo = ehAlunoCompleto(aluno, usuario.papeis) ? aluno : null;
   const podeEditar = podeEscreverAluno(usuario.papeis);
+  // URL assinada de vida curta, gerada a cada visita. O professor também vê.
+  const urlFoto = await urlDaFoto(aluno.fotoPath);
 
   const avisos = avisosDoAluno(
     {
@@ -133,11 +139,20 @@ export default async function AlunoPage({
         <BotaoVoltar href="/alunos">Alunos</BotaoVoltar>
 
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold">{aluno.nome}</h1>
-            <p className="text-muted-foreground font-mono text-sm">
-              {aluno.matricula}
-            </p>
+          <div className="flex items-start gap-4">
+            <QuadroFoto url={urlFoto} alt={`Foto de ${aluno.nome}`} />
+            <div className="space-y-2">
+              <div>
+                <h1 className="text-2xl font-semibold">{aluno.nome}</h1>
+                <p className="text-muted-foreground font-mono text-sm">
+                  {aluno.matricula}
+                </p>
+              </div>
+              {/* Grava quem escreve aluno; o professor só vê a foto. */}
+              {podeEditar ? (
+                <CapturaFoto id={aluno.id} acao={enviarFotoAluno} temFoto={Boolean(aluno.fotoPath)} />
+              ) : null}
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             {/* A ficha imprime RG, CPF, telefone e endereço, então o botão

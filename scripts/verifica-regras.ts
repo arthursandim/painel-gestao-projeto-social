@@ -50,6 +50,13 @@ import {
   motivoDaPerda,
 } from "../lib/estoque";
 import {
+  caminhoFotoAluno,
+  caminhoFotoItem,
+  dimensoesReduzidas,
+  erroDoArquivoDeFoto,
+  TAMANHO_MAXIMO_BYTES,
+} from "../lib/fotos";
+import {
   TIPO_DOCUMENTO_DA_VARIANTE,
   varianteDaFicha,
   VERSAO_FICHA,
@@ -1177,6 +1184,43 @@ checa("motivo da perda leva a matrícula", motivoDaPerda("A0042", null) === "Per
 checa("motivo da perda leva o detalhe", motivoDaPerda("A0042", "rasgou").endsWith("— rasgou"));
 checa("empréstimo sem aluno é recusado", !esquemaEmprestimo.safeParse({ itemId: movBase.itemId, alunoId: "", data: hojeNoProjeto(), observacao: "" }).success);
 checa("empréstimo com data futura é recusado", !esquemaEmprestimo.safeParse({ itemId: movBase.itemId, alunoId: movBase.itemId, data: deslocarDia(hojeNoProjeto(), 1), observacao: "" }).success);
+
+console.log("\nFotos: caminho, formato e tamanho");
+
+checa("foto do aluno vai pela matrícula", caminhoFotoAluno("A0042") === "alunos/A0042.jpg");
+checa("foto do item vai pelo id", caminhoFotoItem("6F1C2A4E-0B1D-4C3E-9A8B-7D6E5F4A3B2C") === "itens/6f1c2a4e-0b1d-4c3e-9a8b-7d6e5f4a3b2c.jpg");
+const recusaCaminho = (f: () => string) => {
+  try {
+    f();
+    return false;
+  } catch {
+    return true;
+  }
+};
+checa("nome no lugar da matrícula é recusado", recusaCaminho(() => caminhoFotoAluno("Maria Silva")));
+checa("travessia de pasta é recusada", recusaCaminho(() => caminhoFotoAluno("../documentos/A0042")));
+checa("item com id que não é uuid é recusado", recusaCaminho(() => caminhoFotoItem("../x")));
+
+const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00]);
+const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d]);
+checa("JPEG pela assinatura passa", erroDoArquivoDeFoto(jpeg) === null);
+checa("PNG é recusado (o navegador converte antes)", erroDoArquivoDeFoto(png) !== null);
+checa("arquivo vazio é recusado", erroDoArquivoDeFoto(new Uint8Array()) !== null);
+const grande = new Uint8Array(TAMANHO_MAXIMO_BYTES + 1);
+grande.set([0xff, 0xd8, 0xff]);
+checa("JPEG acima do teto é recusado", erroDoArquivoDeFoto(grande) !== null);
+const noTeto = new Uint8Array(TAMANHO_MAXIMO_BYTES);
+noTeto.set([0xff, 0xd8, 0xff]);
+checa("JPEG no teto passa", erroDoArquivoDeFoto(noTeto) === null);
+
+console.log("\nFotos: redimensionamento");
+
+const retrato = dimensoesReduzidas(3000, 4000);
+checa("lado maior vira 1024", retrato.altura === 1024 && retrato.largura === 768);
+const paisagem = dimensoesReduzidas(4032, 3024);
+checa("paisagem mantém a proporção", paisagem.largura === 1024 && paisagem.altura === 768);
+const pequena = dimensoesReduzidas(640, 480);
+checa("imagem menor que o limite não é ampliada", pequena.largura === 640 && pequena.altura === 480);
 
 console.log(
   falhas === 0
