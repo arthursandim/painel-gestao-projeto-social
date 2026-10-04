@@ -38,10 +38,16 @@ import {
   contagem,
   contagensPorItem,
   decidirComEmprestimoAberto,
+  erroDeDataDeRetorno,
+  erroDeEmprestimo,
   erroDeSaida,
+  esquemaDevolucao,
+  esquemaEmprestimo,
   esquemaItem,
   esquemaItemNovo,
   esquemaMovimento,
+  esquemaPerda,
+  motivoDaPerda,
 } from "../lib/estoque";
 import {
   TIPO_DOCUMENTO_DA_VARIANTE,
@@ -1143,6 +1149,34 @@ checa("quantidade negativa é recusada", !esquemaMovimento.safeParse({ ...movBas
 checa("tipo fora do enum é recusado", !esquemaMovimento.safeParse({ ...movBase, tipo: "AJUSTE" }).success);
 checa("data futura é recusada", !esquemaMovimento.safeParse({ ...movBase, data: deslocarDia(hojeNoProjeto(), 1) }).success);
 checa("data retroativa passa", esquemaMovimento.safeParse({ ...movBase, data: deslocarDia(hojeNoProjeto(), -30) }).success);
+
+console.log("\nInventário: empréstimo");
+
+const emprestavel = { ativo: true, podeSerEmprestado: true };
+const alunoAtivo = { ativo: true };
+// O caso crítico: kimono único (total 1) que já está na rua.
+checa("unidade única já emprestada é barrada", erroDeEmprestimo(emprestavel, contagem(1, 0, 1), alunoAtivo) !== null);
+checa("unidade única disponível empresta", erroDeEmprestimo(emprestavel, contagem(1, 0, 0), alunoAtivo) === null);
+checa("faixa com 30 e 29 na rua ainda empresta", erroDeEmprestimo(emprestavel, contagem(30, 0, 29), alunoAtivo) === null);
+checa("todas emprestadas é barrado", erroDeEmprestimo(emprestavel, contagem(30, 0, 30), alunoAtivo) !== null);
+checa("aluno desligado é barrado", erroDeEmprestimo(emprestavel, contagem(3, 0, 0), { ativo: false }) !== null);
+checa("aluno inexistente é barrado", erroDeEmprestimo(emprestavel, contagem(3, 0, 0), null) !== null);
+checa("item não emprestável é barrado", erroDeEmprestimo({ ativo: true, podeSerEmprestado: false }, contagem(3, 0, 0), alunoAtivo) !== null);
+checa("item inativo é barrado", erroDeEmprestimo({ ativo: false, podeSerEmprestado: true }, contagem(3, 0, 0), alunoAtivo) !== null);
+// Controle negativo: conferir pelo total, e não pelo disponível, deixaria o
+// segundo empréstimo do kimono passar.
+checa("controle: pelo total o kimono emprestado pareceria livre", contagem(1, 0, 1).total >= 1);
+
+console.log("\nInventário: devolução e perda");
+
+checa("devolução no mesmo dia do empréstimo passa", erroDeDataDeRetorno("2026-10-01", "2026-10-01") === null);
+checa("devolução antes do empréstimo é barrada", erroDeDataDeRetorno("2026-09-30", "2026-10-01") !== null);
+checa("data futura de devolução é recusada", !esquemaDevolucao.safeParse({ emprestimoId: movBase.itemId, data: deslocarDia(hojeNoProjeto(), 1) }).success);
+checa("perda com detalhe vazio passa (detalhe é opcional)", esquemaPerda.safeParse({ emprestimoId: movBase.itemId, data: hojeNoProjeto(), detalhe: "" }).success);
+checa("motivo da perda leva a matrícula", motivoDaPerda("A0042", null) === "Perdido em empréstimo (A0042)");
+checa("motivo da perda leva o detalhe", motivoDaPerda("A0042", "rasgou").endsWith("— rasgou"));
+checa("empréstimo sem aluno é recusado", !esquemaEmprestimo.safeParse({ itemId: movBase.itemId, alunoId: "", data: hojeNoProjeto(), observacao: "" }).success);
+checa("empréstimo com data futura é recusado", !esquemaEmprestimo.safeParse({ itemId: movBase.itemId, alunoId: movBase.itemId, data: deslocarDia(hojeNoProjeto(), 1), observacao: "" }).success);
 
 console.log(
   falhas === 0

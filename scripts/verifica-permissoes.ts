@@ -19,9 +19,12 @@ import {
   type RotaModulo,
 } from "../lib/permissoes";
 import {
+  alunoParaEmprestimo,
+  CAMPOS_ALUNO_EMPRESTIMO,
   CAMPOS_VEDADOS_AO_PROFESSOR,
   podeVerDadosSensiveis,
   podeVerDocumentos,
+  SELECAO_EMPRESTIMO,
   selectAlunoPara,
 } from "../lib/selecaoAluno";
 
@@ -205,6 +208,60 @@ for (const papeis of [
     podeImprimirFicha(papeis) === podeVerDadosSensiveis(papeis),
   );
 }
+
+console.log("\nVisão do inventário: aluno no empréstimo");
+
+// Registro como a consulta devolveria, com campos a mais de propósito (saúde,
+// endereço): a projeção tem que descartá-los mesmo que a seleção um dia os traga.
+const registroBase = {
+  id: "00000000-0000-4000-8000-000000000001",
+  matricula: "A0042",
+  nome: "Aluno Teste",
+  status: "ATIVO" as const,
+  nascimento: new Date("2015-03-10T00:00:00.000Z"),
+  turma: { nome: "Kids" },
+  responsavelTipo: "MAE" as const,
+  responsavelNome: null,
+  responsavelParentesco: null,
+  nomePai: "PAI-NAO-DEVE-SAIR",
+  nomeMae: "Mãe Teste",
+  telefoneResponsavel: "(48) 99999-0001",
+  telefoneAluno: "(48) 99999-0002",
+  alergias: "ALERGIA-NAO-DEVE-SAIR",
+  endereco: "ENDERECO-NAO-DEVE-SAIR",
+};
+const HOJE_PERM = "2026-10-04";
+const menorProjetado = alunoParaEmprestimo(registroBase, HOJE_PERM);
+const textoMenor = JSON.stringify(menorProjetado);
+
+checa(
+  "a projeção entrega exatamente os campos declarados",
+  Object.keys(menorProjetado).sort().join() === [...CAMPOS_ALUNO_EMPRESTIMO].sort().join(),
+);
+for (const vazamento of ["PAI-NAO-DEVE-SAIR", "ALERGIA-NAO-DEVE-SAIR", "ENDERECO-NAO-DEVE-SAIR", "2015-03-10"]) {
+  checa(`inventário não recebe "${vazamento}"`, !textoMenor.includes(vazamento));
+}
+checa("seleção do empréstimo não lê saúde", !("alergias" in SELECAO_EMPRESTIMO));
+checa("seleção do empréstimo não lê endereço nem documento", !("endereco" in SELECAO_EMPRESTIMO) && !("cpf" in SELECAO_EMPRESTIMO));
+
+// Controle negativo: o que foi autorizado aparece.
+checa("menor: nome do responsável (derivado da mãe)", menorProjetado.contato.nome === "Mãe Teste");
+checa("menor: telefone do responsável", menorProjetado.contato.telefone === "(48) 99999-0001");
+checa("menor: não leva o telefone do aluno", !textoMenor.includes("99999-0002"));
+
+const adultoProjetado = alunoParaEmprestimo(
+  { ...registroBase, nascimento: new Date("2000-01-01T00:00:00.000Z") },
+  HOJE_PERM,
+);
+checa("adulto: telefone do próprio aluno", adultoProjetado.contato.telefone === "(48) 99999-0002");
+checa("adulto: sem nome de responsável", adultoProjetado.contato.nome === null);
+checa("adulto: não leva o telefone do responsável", !JSON.stringify(adultoProjetado).includes("99999-0001"));
+
+// Corte dos 18 no dia do aniversário, como na ficha.
+const vespera = alunoParaEmprestimo({ ...registroBase, nascimento: new Date("2008-10-05T00:00:00.000Z") }, HOJE_PERM);
+const aniversario = alunoParaEmprestimo({ ...registroBase, nascimento: new Date("2008-10-04T00:00:00.000Z") }, HOJE_PERM);
+checa("17 anos e 364 dias ainda é menor", vespera.menor);
+checa("no aniversário de 18 já é adulto", !aniversario.menor);
 
 console.log(
   falhas === 0

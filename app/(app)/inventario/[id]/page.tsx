@@ -4,7 +4,9 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 
 import { FormAtivoItem } from "./form-ativo";
+import { FormEmprestar } from "./form-emprestar";
 import { FormMovimento } from "./form-movimento";
+import { ListaEmprestimos } from "../lista-emprestimos";
 import { BotaoVoltar } from "@/components/botao-voltar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { exigirAcesso } from "@/lib/auth";
 import { formatarDiaBr, formatarMomentoBr, hojeNoProjeto } from "@/lib/data";
 import { abaixoDoMinimo, ROTULO_ESTADO, ROTULO_TIPO_MOVIMENTO } from "@/lib/estoque";
-import { contagemDoItem } from "@/lib/inventario";
+import { alunosParaEmprestar, contagemDoItem, emprestimosParaTela } from "@/lib/inventario";
 import { ehAdmin } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
 
@@ -24,7 +26,7 @@ export default async function ItemPage({ params }: PageProps<"/inventario/[id]">
   const { id } = await params;
   if (!z.uuid().safeParse(id).success) notFound();
 
-  const [item, contagem] = await Promise.all([
+  const [item, contagem, emprestimos] = await Promise.all([
     prisma.item.findUnique({
       where: { id },
       select: {
@@ -58,10 +60,15 @@ export default async function ItemPage({ params }: PageProps<"/inventario/[id]">
       },
     }),
     contagemDoItem(id),
+    emprestimosParaTela({ itemId: id }),
   ]);
   if (!item) notFound();
 
   const baixo = abaixoDoMinimo(contagem.total, item.quantidadeMinima);
+  const hoje = hojeNoProjeto();
+  const podeEmprestar = item.ativo && item.podeSerEmprestado && contagem.disponivel > 0;
+  // A lista de alunos só é lida quando o formulário aparece.
+  const alunos = podeEmprestar ? await alunosParaEmprestar() : [];
   const un = item.unidadeMedida;
 
   return (
@@ -150,6 +157,30 @@ export default async function ItemPage({ params }: PageProps<"/inventario/[id]">
         />
       </div>
 
+      {item.podeSerEmprestado || emprestimos.length > 0 ? (
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-lg font-medium">Empréstimos</h2>
+            <p className="text-muted-foreground text-sm">
+              Emprestar não mexe no total: a unidade continua sendo do projeto, só
+              deixa de estar disponível.
+            </p>
+          </div>
+          {podeEmprestar ? (
+            <FormEmprestar itemId={item.id} alunos={alunos} hojeIso={hoje} />
+          ) : item.ativo && item.podeSerEmprestado ? (
+            <p className="text-muted-foreground text-sm">
+              Nenhuma unidade disponível para emprestar.
+            </p>
+          ) : null}
+          {emprestimos.length > 0 ? (
+            <ListaEmprestimos emprestimos={emprestimos} hojeIso={hoje} />
+          ) : (
+            <p className="text-muted-foreground text-sm">Nenhum empréstimo ainda.</p>
+          )}
+        </section>
+      ) : null}
+
       <section className="space-y-4">
         <div>
           <h2 className="text-lg font-medium">Movimentos de estoque</h2>
@@ -163,7 +194,7 @@ export default async function ItemPage({ params }: PageProps<"/inventario/[id]">
             itemId={item.id}
             disponivel={contagem.disponivel}
             unidade={un}
-            hojeIso={hojeNoProjeto()}
+            hojeIso={hoje}
           />
         ) : (
           <p className="text-muted-foreground text-sm">

@@ -238,3 +238,74 @@ export function erroDeSaida(quantidade: number, c: Contagem): string | null {
         : "";
   return `Saída de ${quantidade} maior que o disponível (${c.disponivel}).${emprestados}`;
 }
+
+// ---------------------------------------------------------------------------
+// Empréstimos
+//
+// Emprestar NÃO gera movimento: o item continua sendo do projeto e continua no
+// total, só deixa de estar disponível. Se gerasse SAIDA, `total − emprestados`
+// descontaria a mesma unidade duas vezes.
+
+export const ROTULO_STATUS_EMPRESTIMO = {
+  EMPRESTADO: "Emprestado",
+  DEVOLVIDO: "Devolvido",
+  PERDIDO: "Perdido",
+} as const;
+
+/**
+ * Pode emprestar uma unidade? Conferido no servidor com a linha do item
+ * travada: dois empréstimos simultâneos da unidade única — o caso crítico do
+ * kimono — não passam os dois. O banco não barra; esta regra barra.
+ */
+export function erroDeEmprestimo(
+  item: { ativo: boolean; podeSerEmprestado: boolean },
+  c: Contagem,
+  aluno: { ativo: boolean } | null,
+): string | null {
+  if (!item.ativo) return "Item inativo não pode ser emprestado.";
+  if (!item.podeSerEmprestado) return "Este item não está marcado como emprestável.";
+  if (!aluno) return "Aluno não encontrado.";
+  if (!aluno.ativo) return "Empréstimo só para aluno ativo.";
+  if (c.disponivel < 1) {
+    return c.total === 1
+      ? "A unidade deste item já está emprestada."
+      : "Nenhuma unidade disponível: todas estão emprestadas.";
+  }
+  return null;
+}
+
+const observacao = opcional(z.string().trim().min(1).max(300));
+
+export const esquemaEmprestimo = z.object({
+  itemId: z.uuid({ error: "Item inválido." }),
+  alunoId: z.uuid({ error: "Escolha o aluno." }),
+  data: diaNaoFuturo("Data do empréstimo"),
+  observacao,
+});
+
+/** Devolução e perda: a data não vem antes do empréstimo. */
+export function erroDeDataDeRetorno(dataIso: string, dataEmprestimoIso: string): string | null {
+  return dataIso < dataEmprestimoIso
+    ? "A data não pode ser anterior à do empréstimo."
+    : null;
+}
+
+export const esquemaDevolucao = z.object({
+  emprestimoId: z.uuid({ error: "Empréstimo inválido." }),
+  data: diaNaoFuturo("Data da devolução"),
+});
+
+export const esquemaPerda = z.object({
+  emprestimoId: z.uuid({ error: "Empréstimo inválido." }),
+  data: diaNaoFuturo("Data"),
+  detalhe: observacao,
+});
+
+/**
+ * Motivo da SAIDA que a perda gera. Leva a matrícula, não o nome — pelo mesmo
+ * motivo da nomenclatura de documentos: nome de criança não vai para texto
+ * livre gravado. Quem precisa do nome segue o empréstimo, que aponta o aluno.
+ */
+export function motivoDaPerda(matricula: string, detalhe: string | null): string {
+  return `Perdido em empréstimo (${matricula})${detalhe ? ` — ${detalhe}` : ""}`;
+}

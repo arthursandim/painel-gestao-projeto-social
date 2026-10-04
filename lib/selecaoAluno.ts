@@ -6,6 +6,10 @@
 // mão, todas passam por `selectAlunoPara`.
 import { Papel, type Prisma } from "@prisma/client";
 
+import { IDADE_MAIORIDADE } from "@/lib/avisosAluno";
+import { dataParaDia, idadeEm } from "@/lib/data";
+import { responsavelDoAluno } from "@/lib/responsavel";
+
 /**
  * Lista branca, nunca lista negra.
  *
@@ -184,4 +188,77 @@ export function ehAlunoCompleto(
  */
 export function podeVerDocumentos(papeis: readonly Papel[]): boolean {
   return podeVerDadosSensiveis(papeis);
+}
+
+// ---------------------------------------------------------------------------
+// Visão do inventário (decidida pelo desenvolvedor na fase 8)
+//
+// INVENTARIO não abre /alunos: vê aluno só no empréstimo, e só para saber com
+// quem está o item e como cobrar a devolução. Menor: nome e telefone do
+// responsável. Adulto: telefone do aluno. Nada de saúde, endereço, documento.
+//
+// A consulta precisa ler um pouco mais do que entrega — nascimento para saber
+// se é menor, nome do pai e da mãe para derivar o responsável, que é
+// referência e não cópia (lib/responsavel.ts). Por isso são duas peças: a
+// seleção, que só roda no servidor, e `alunoParaEmprestimo`, a projeção que
+// decide o que sai. Nenhum registro cru desta seleção vai para a tela.
+
+export const SELECAO_EMPRESTIMO = {
+  id: true,
+  matricula: true,
+  nome: true,
+  status: true,
+  nascimento: true,
+  turma: { select: { nome: true } },
+  responsavelTipo: true,
+  responsavelNome: true,
+  responsavelParentesco: true,
+  nomePai: true,
+  nomeMae: true,
+  telefoneResponsavel: true,
+  telefoneAluno: true,
+} as const satisfies Prisma.AlunoSelect;
+
+type RegistroEmprestimo = Prisma.AlunoGetPayload<{ select: typeof SELECAO_EMPRESTIMO }>;
+
+export type AlunoEmprestimo = {
+  id: string;
+  matricula: string;
+  nome: string;
+  turma: string;
+  ativo: boolean;
+  menor: boolean;
+  /** Quem atende a cobrança. No adulto, só o telefone do próprio aluno. */
+  contato: { nome: string | null; parentesco: string | null; telefone: string | null };
+};
+
+/** Os campos que a projeção entrega — conferidos em verifica-permissoes. */
+export const CAMPOS_ALUNO_EMPRESTIMO = [
+  "id",
+  "matricula",
+  "nome",
+  "turma",
+  "ativo",
+  "menor",
+  "contato",
+] as const satisfies readonly (keyof AlunoEmprestimo)[];
+
+export function alunoParaEmprestimo(aluno: RegistroEmprestimo, hojeIso: string): AlunoEmprestimo {
+  const menor = idadeEm(dataParaDia(aluno.nascimento), hojeIso) < IDADE_MAIORIDADE;
+  const responsavel = menor ? responsavelDoAluno(aluno) : null;
+  return {
+    id: aluno.id,
+    matricula: aluno.matricula,
+    nome: aluno.nome,
+    turma: aluno.turma.nome,
+    ativo: aluno.status === "ATIVO",
+    menor,
+    contato: menor
+      ? {
+          nome: responsavel?.nome ?? null,
+          parentesco: responsavel?.parentesco ?? null,
+          telefone: aluno.telefoneResponsavel,
+        }
+      : { nome: null, parentesco: null, telefone: aluno.telefoneAluno },
+  };
 }

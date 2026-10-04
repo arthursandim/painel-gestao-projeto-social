@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { Plus, Search } from "lucide-react";
+import { HandHelping, Plus, Search } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -82,12 +82,20 @@ export default async function InventarioPage({ searchParams }: PageProps<"/inven
             saída, com motivo; nada é apagado.
           </p>
         </div>
-        <Button asChild className="min-h-11">
-          <Link href="/inventario/novo">
-            <Plus className="size-4" />
-            Novo item
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" className="min-h-11">
+            <Link href="/inventario/emprestimos">
+              <HandHelping className="size-4" />
+              Empréstimos
+            </Link>
+          </Button>
+          <Button asChild className="min-h-11">
+            <Link href="/inventario/novo">
+              <Plus className="size-4" />
+              Novo item
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Busca por GET: o filtro fica na URL, como na lista de alunos. */}

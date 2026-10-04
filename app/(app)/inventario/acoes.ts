@@ -6,19 +6,26 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { exigirPapeis } from "@/lib/auth";
-import { diaParaData, hojeNoProjeto } from "@/lib/data";
+import { dataParaDia, diaParaData, hojeNoProjeto } from "@/lib/data";
 import {
   camposItemDoForm,
   decidirComEmprestimoAberto,
+  erroDeDataDeRetorno,
+  erroDeEmprestimo,
   erroDeSaida,
+  esquemaDevolucao,
+  esquemaEmprestimo,
   esquemaItem,
   esquemaItemNovo,
   esquemaMovimento,
+  esquemaPerda,
+  motivoDaPerda,
   MOTIVO_CADASTRO,
 } from "@/lib/estoque";
 import { contagemDoItem, travarItem } from "@/lib/inventario";
 import { ehAdmin, papeisDaRota } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
+import { alunoParaEmprestimo, SELECAO_EMPRESTIMO } from "@/lib/selecaoAluno";
 
 export type EstadoItem = { erro?: string; ok?: string };
 
@@ -195,5 +202,140 @@ export async function registrarMovimento(
 
   revalidatePath("/inventario");
   revalidatePath(`/inventario/${itemId}`);
+  return resultado;
+}
+
+/**
+ * Empresta uma unidade a um aluno ativo. Não gera movimento de estoque: o item
+ * continua no total, só deixa de estar disponível.
+ */
+export async function emprestar(_estado: EstadoItem, form: FormData): Promise<EstadoItem> {
+  const autor = await exigirPapeis(PAPEIS_INVENTARIO);
+
+  const analise = esquemaEmprestimo.safeParse({
+    itemId: form.get("itemId"),
+    alunoId: form.get("alunoId"),
+    data: form.get("data"),
+    observacao: form.get("observacao"),
+  });
+  if (!analise.success) return { erro: primeiroErro(analise.error) };
+  const { itemId, alunoId, data, observacao } = analise.data;
+
+  const resultado = await prisma.$transaction(async (tx): Promise<EstadoItem> => {
+    // Com a linha travada, o segundo empréstimo simultâneo da unidade única
+    // espera o primeiro gravar e então encontra o disponível já em 0.
+    if (!(await travarItem(tx, itemId))) return { erro: "Item não encontrado." };
+
+    const [item, registro, c] = await Promise.all([
+      tx.item.findUniqueOrThrow({
+        where: { id: itemId },
+        select: { ativo: true, podeSerEmprestado: true },
+      }),
+      tx.aluno.findUnique({ where: { id: alunoId }, select: SELECAO_EMPRESTIMO }),
+      contagemDoItem(itemId, tx),
+    ]);
+    const aluno = registro ? alunoParaEmprestimo(registro, hojeNoProjeto()) : null;
+    const erro = erroDeEmprestimo(item, c, aluno);
+    if (erro || !aluno) return { erro: erro ?? "Aluno não encontrado." };
+
+    await tx.emprestimo.create({
+      data: {
+        itemId,
+        alunoId,
+        dataEmprestimo: diaParaData(data),
+        emprestadoPorId: autor.id,
+        observacao,
+      },
+    });
+    return { ok: `Emprestado a ${aluno.nome} (${aluno.matricula}).` };
+  });
+
+  revalidatePath("/inventario", "layout");
+  return resultado;
+}
+
+/** Devolução: data e quem recebeu. O status vai no WHERE — devolver duas vezes não passa. */
+export async function devolver(_estado: EstadoItem, form: FormData): Promise<EstadoItem> {
+  const autor = await exigirPapeis(PAPEIS_INVENTARIO);
+
+  const analise = esquemaDevolucao.safeParse({
+    emprestimoId: form.get("emprestimoId"),
+    data: form.get("data"),
+  });
+  if (!analise.success) return { erro: primeiroErro(analise.error) };
+  const { emprestimoId, data } = analise.data;
+
+  const emprestimo = await prisma.emprestimo.findUnique({
+    where: { id: emprestimoId },
+    select: { dataEmprestimo: true },
+  });
+  if (!emprestimo) return { erro: "Empréstimo não encontrado." };
+  const erroData = erroDeDataDeRetorno(data, dataParaDia(emprestimo.dataEmprestimo));
+  if (erroData) return { erro: erroData };
+
+  const { count } = await prisma.emprestimo.updateMany({
+    where: { id: emprestimoId, status: StatusEmprestimo.EMPRESTADO },
+    data: {
+      status: StatusEmprestimo.DEVOLVIDO,
+      dataDevolucao: diaParaData(data),
+      recebidoPorId: autor.id,
+    },
+  });
+  if (count === 0) return { erro: "Este empréstimo já foi encerrado — devolvido ou marcado como perdido." };
+
+  revalidatePath("/inventario", "layout");
+  return { ok: "Devolução registrada." };
+}
+
+/**
+ * Perda. Duas escritas na mesma transação: o empréstimo deixa de ser
+ * EMPRESTADO e uma SAIDA de 1 tira a unidade do total. Uma sem a outra
+ * desconta duas vezes (SAIDA com o status ainda EMPRESTADO) ou deixa o total
+ * inflado (PERDIDO sem SAIDA). Quem marcou e quando ficam na SAIDA.
+ */
+export async function marcarPerdido(_estado: EstadoItem, form: FormData): Promise<EstadoItem> {
+  const autor = await exigirPapeis(PAPEIS_INVENTARIO);
+
+  const analise = esquemaPerda.safeParse({
+    emprestimoId: form.get("emprestimoId"),
+    data: form.get("data"),
+    detalhe: form.get("detalhe"),
+  });
+  if (!analise.success) return { erro: primeiroErro(analise.error) };
+  const { emprestimoId, data, detalhe } = analise.data;
+
+  const emprestimo = await prisma.emprestimo.findUnique({
+    where: { id: emprestimoId },
+    select: { itemId: true, dataEmprestimo: true, aluno: { select: { matricula: true } } },
+  });
+  if (!emprestimo) return { erro: "Empréstimo não encontrado." };
+  const erroData = erroDeDataDeRetorno(data, dataParaDia(emprestimo.dataEmprestimo));
+  if (erroData) return { erro: erroData };
+
+  const resultado = await prisma.$transaction(async (tx): Promise<EstadoItem> => {
+    await travarItem(tx, emprestimo.itemId);
+
+    const { count } = await tx.emprestimo.updateMany({
+      where: { id: emprestimoId, status: StatusEmprestimo.EMPRESTADO },
+      data: { status: StatusEmprestimo.PERDIDO },
+    });
+    if (count === 0) {
+      return { erro: "Este empréstimo já foi encerrado — devolvido ou marcado como perdido." };
+    }
+
+    await tx.movimentoEstoque.create({
+      data: {
+        itemId: emprestimo.itemId,
+        tipo: TipoMovimento.SAIDA,
+        quantidade: 1,
+        motivo: motivoDaPerda(emprestimo.aluno.matricula, detalhe),
+        data: diaParaData(data),
+        autorId: autor.id,
+      },
+    });
+    return { ok: "Marcado como perdido. A unidade saiu do total." };
+  });
+
+  revalidatePath("/inventario", "layout");
   return resultado;
 }
