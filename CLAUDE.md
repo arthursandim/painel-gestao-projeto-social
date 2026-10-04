@@ -425,6 +425,15 @@ Os alertas **Documento pendente** e **Ficha a refazer** entram com a fase 5, que
 
 Mostra também a ocupação de cada turma contra a capacidade configurada, destacando a que estiver acima do limite.
 
+### Chamadas da semana
+
+Pedido do desenvolvedor em 2026-10-04, para a fase 7. O painel mostra o histórico de chamadas **só da semana vigente**, com atalho para `/chamada/historico`, onde fica o histórico completo.
+
+- Mesma fonte do histórico da fase 6: registros de `Presenca` agrupados por turma e dia. Dia sem aula não tem registro e não aparece
+- Cada linha: data, turma, presentes, faltas e total; tocar abre a chamada em modo edição, como no histórico
+- Semana calculada no fuso do projeto (`hojeNoProjeto()`), nunca no do servidor
+- **Em aberto:** a semana começa no domingo ou na segunda — perguntar ao desenvolvedor ao abrir a fase 7
+
 O default 3 não é arbitrário: os termos assinados pelas famílias estabelecem que três faltas consecutivas ensejam desligamento. O termo fala em desligamento automático; **o app é deliberadamente mais cauteloso.**
 
 ---
