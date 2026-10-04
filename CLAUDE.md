@@ -6,6 +6,8 @@ O domínio central é **vaga**, não presença. Presença é o sensor que detect
 
 **Princípio que governa todo o app: o sistema sinaliza, a pessoa decide.** Nenhum desligamento, liberação de vaga, troca de turma ou mudança de escala acontece automaticamente.
 
+**Situação: versão 1 concluída e em produção** (2026-10-04) em `https://painel-gestao-projeto-social.vercel.app`. A antiga fase 5 (documentos) não entrou na v1: virou o primeiro item do **backlog de melhorias** (ver "Roteiro › Backlog de melhorias"). Daqui em diante, cada mudança é um item do backlog, com o mesmo ciclo de trabalho das fases.
+
 ---
 
 ## Stack (não trocar sem motivo)
@@ -46,11 +48,13 @@ prisma/schema.prisma
 
 1. Autenticação e usuários
 2. Cadastro de alunos
-3. Documentos (ficha em PDF, upload, versionamento)
+3. Ficha em PDF para impressão — ~~upload e versionamento de documentos~~ saiu da v1 e foi para o backlog (decisão de 2026-10-04)
 4. Chamada
 5. Lista de espera
 6. Inventário
 7. Painel de pendências (tela inicial)
+
+Entregue na v1 além da lista acima, a pedido do desenvolvedor: foto do aluno e do item, PWA, histórico de parâmetros (`/config/historico`), exclusão de usuário sem registros, ordenação das listas, importação por planilha e limpeza do banco (`banco:limpar`).
 
 ### Fora do escopo — não implementar
 
@@ -297,7 +301,7 @@ Regra: mudou texto de termo ou campo impresso → incrementa a versão. Ajuste v
 
 ### Ficha assinada bloqueia nova impressão
 
-Decidido em 2026-10-04, para a fase 5 (depende da tabela `Documento`). Enviada a ficha assinada, a impressão de uma ficha nova passa a ser **só do `ADMIN`**.
+Decidido em 2026-10-04, para o item Documentos do backlog (depende da tabela `Documento`; não está na v1). Enviada a ficha assinada, a impressão de uma ficha nova passa a ser **só do `ADMIN`**.
 
 - Gatilho: existe ficha **vigente da variante atual** do aluno — `ficha-menor` para menor, `ficha-adulto` para adulto, a variante pelo nascimento, como no gerador
 - Ficha de menor vigente **não** bloqueia a impressão da adulta. Aos 18 anos o alerta "Ficha a refazer" continua resolvível por `INSCRICOES`, sem depender do admin
@@ -502,7 +506,7 @@ Implementado na fase 8, concluída em 2026-10-04: regras puras em `lib/estoque.t
 
 Tela inicial e a mais usada. Cinco alertas, cada card leva à lista correspondente.
 
-Os alertas **Documento pendente** e **Ficha a refazer** entram com a fase 5, que passou para o fim (ver "Roteiro › Ordem de execução"). A fase 7 entrega os outros três.
+Os alertas **Documento pendente** e **Ficha a refazer** não estão na v1: entram com o item Documentos do backlog (ver "Roteiro › Backlog de melhorias"). A v1 tem os outros três.
 
 | Alerta | Regra |
 | --- | --- |
@@ -633,42 +637,44 @@ Implementado em 2026-10-04, a pedido do desenvolvedor, antes do deploy:
 
 ---
 
-## Roteiro — implementar uma fase por vez
+## Roteiro
 
-Não começar uma fase antes da anterior estar funcionando de verdade.
+### Versão 1 — concluída em 2026-10-04
 
-1. **Fundação** — projeto Next.js, Supabase conectado, schema Prisma completo, seed com as duas turmas e um admin. Pronto quando `npx prisma studio` mostra as tabelas.
-2. **Autenticação e permissões** — login, sessão, quatro papéis, middleware de rota, CRUD de usuário restrito a admin. Pronto quando um professor não consegue abrir a rota de inventário nem pela URL.
-3. **Cadastro de alunos** — formulário, Zod, matrícula automática, lista com busca e filtro, edição.
-4. **Ficha em PDF** — template A4, variantes, impressão. Pronto quando a ficha impressa é idêntica ao modelo atual.
-5. **Documentos** — upload, nomenclatura, hash, versionamento, completude.
-6. **Chamada** — tela, default presente, edição, consulta de faltas consecutivas. Pronto quando 40 alunos são chamados em menos de dois minutos no celular.
-7. **Lista de espera e painel** — fila, conversão, os cinco alertas, configuração.
-8. **Inventário** — itens, empréstimos, movimentos, e a foto do item e do aluno. Pronto quando: empréstimo duplicado de unidade única é barrado; saída maior que o saldo é barrada; emprestar não mexe no total; perdido gera `SAIDA` e as contas fecham; negar a câmera cai no seletor de arquivo e fechar o modal apaga a luz da câmera, no Android e no iPhone.
+As fases foram implementadas uma por vez, cada uma só depois de a anterior funcionar de verdade. Os números continuam sendo o nome de cada fase, para não desencontrar das referências deste documento ("depois da fase 6", "regra da fase 8") e do histórico de commits.
 
-### Ordem de execução: a fase 5 vai para o fim
+1. **Fundação** — projeto Next.js, Supabase conectado, schema Prisma completo, seed com as duas turmas e um admin. ✔
+2. **Autenticação e permissões** — login, sessão, quatro papéis, middleware de rota, CRUD de usuário restrito a admin. ✔
+3. **Cadastro de alunos** — formulário, Zod, matrícula automática, lista com busca e filtro, edição. ✔
+4. **Ficha em PDF** — template A4, variantes, impressão. ✔
+5. **Documentos** — upload, nomenclatura, hash, versionamento, completude. → **saiu da v1; é o primeiro item do backlog**
+6. **Chamada** — tela, default presente, edição, consulta de faltas consecutivas. ✔
+7. **Lista de espera e painel** — fila, conversão, três dos cinco alertas, configuração. ✔
+8. **Inventário** — itens, empréstimos, movimentos, e a foto do item e do aluno. ✔
 
-Decidido em 2026-10-03, ao abrir a fase 5: o desenvolvedor ainda vai decidir pontos sobre o armazenamento dos documentos. A fase 5 sai da ordem e vira **a última etapa antes do deploy**. A ordem de execução fica:
+Ordem em que foram feitas: 1 → 2 → 3 → 4 → 6 → 7 → 8, depois limpeza do banco, PWA e deploy. A fase 5 foi adiada em 2026-10-03 (o desenvolvedor ainda ia decidir o armazenamento dos documentos) e, em 2026-10-04, tirada da v1.
 
-**1 → 2 → 3 → 4 → 6 → 7 → 8 → 5 → deploy**
+Depois do deploy, ainda na v1: histórico de parâmetros, exclusão de usuário sem registros, ordenação das listas, importação da turma Kids e o cron que mantém o Supabase acordado.
 
-Situação em 2026-10-04: fases 1, 2, 3, 4, 6, 7 e 8 concluídas. **Nova ordem, decidida pelo desenvolvedor no mesmo dia:** limpeza do banco (`banco:limpar`) → PWA → deploy → fase 5 (agora **só documentos**, sem a foto) **depois do deploy**.
-
-**Deploy feito em 2026-10-04**, checklist de produção aprovado pelo desenvolvedor (câmera, PWA, offline, permissões): `https://painel-gestao-projeto-social.vercel.app`, deploy automático a cada push na `main`. Falta a fase 5. Passo a passo e checklist em `docs/deploy.md`. Variáveis só em **Production** na Vercel (o banco é um só; preview gravaria nos dados reais) e funções em `gru1`, a região do Supabase (`vercel.json`).
+**Em produção desde 2026-10-04**, checklist aprovado pelo desenvolvedor (câmera, PWA, offline, permissões): `https://painel-gestao-projeto-social.vercel.app`, deploy automático a cada push na `main`. Passo a passo e checklist em `docs/deploy.md`. Variáveis só em **Production** na Vercel (o banco é um só; preview gravaria nos dados reais) e funções em `gru1`, a região do Supabase (`vercel.json`).
 
 **Supabase acordado:** o plano gratuito pausa o projeto depois de 7 dias sem atividade. Um cron diário da Vercel (`vercel.json`) chama `/api/manter-ativo`, que faz um `SELECT 1`. A rota fica fora do login (`proxy.ts`) e é protegida pelo `CRON_SECRET` (variável em Production na Vercel e no `.env.local`); sem ele, recusa tudo. Não remover o cron nem a variável.
 
-Os números continuam sendo o nome de cada fase, para não desencontrar das referências deste documento ("depois da fase 6", "regra da fase 8") e do histórico de commits.
+### Backlog de melhorias
 
-O que vai junto para a fase 5, porque depende do mesmo armazenamento:
+Decidido em 2026-10-04, com a v1 entregue. Nenhum item começa por iniciativa própria: o desenvolvedor escolhe qual e quando.
 
-- ~~Foto do aluno~~ — **saiu da fase 5 e entra na fase 8**, junto com a foto do item (decidido pelo desenvolvedor em 2026-10-04). Foto não é decisão de negócio pendente; o upload de documento é. Ver "Inventário › Decisões da fase 8"
+#### 1. Documentos (antiga fase 5)
+
+Upload, nomenclatura, hash, versionamento e completude — ver as seções "Documentos" e "Ficha impressa". Vai junto, porque depende do mesmo armazenamento:
+
+- ~~Foto do aluno~~ — já feita na v1 (fase 8), junto com a foto do item. Ver "Inventário › Decisões da fase 8"
 - Os alertas **Documento pendente** e **Ficha a refazer** do painel. A fase 7 entrega os outros três alertas e a ocupação das turmas. Sem a tabela de documentos preenchida, "documento pendente" marcaria todos os alunos.
 - O preenchimento de `temFichaMenorVigente` em `lib/avisosAluno.ts` e o aviso "documento obrigatório faltando" no cadastro
 - O bloqueio de nova impressão depois da ficha assinada, hoje liberada a `INSCRICOES` por `podeImprimirFicha` em `lib/ficha.ts` (ver "Ficha impressa › Ficha assinada bloqueia nova impressão")
 - Visualizar sem baixar: download só para admin (ver "Documentos › Visualizar não é baixar")
 
-Decisões já tomadas para a fase 5. **As de armazenamento são provisórias**, porque é justamente o que vai ser rediscutido:
+Decisões já tomadas para este item. **As de armazenamento são provisórias**, porque é justamente o que vai ser rediscutido — perguntar ao desenvolvedor antes de usar:
 
 | Decisão | Valor | Situação |
 | --- | --- | --- |
@@ -677,6 +683,12 @@ Decisões já tomadas para a fase 5. **As de armazenamento são provisórias**, 
 | Formatos e tamanho | PDF, JPEG, PNG; até 10 MB | Provisória |
 | Caminho do upload | Direto do navegador com URL assinada de upload; servidor baixa o arquivo armazenado e calcula SHA-256 e tamanho ele mesmo | Provisória |
 | `outros` acumula ou substitui | — | **Em aberto** |
+
+Atenção ao limite da Vercel: o corpo de uma Server Action vai até 4,5 MB (e `next.config.ts` limita a 2 MB). Documento de até 10 MB não passa por ali — por isso o upload direto com URL assinada.
+
+#### 2. Marca d'água na visualização de documento
+
+Depende do item 1. Avaliada e adiada na seção "Documentos › Visualizar não é baixar": registrar na imagem quem visualizou e quando. Só se a diretoria sentir necessidade.
 
 ### Banco único e limpeza antes da importação
 
@@ -699,17 +711,19 @@ Decidido em 2026-10-04: existe **um só projeto Supabase**, o do `.env.local`, e
 
 ## Fluxo de trabalho
 
-Uma fase por vez, na ordem do roteiro. Nunca começar a seguinte por iniciativa própria.
+Com a v1 concluída, o trabalho é por item do backlog ou por pedido do desenvolvedor — um por vez, e nunca o seguinte por iniciativa própria.
 
-Ciclo obrigatório de cada fase:
+Ciclo obrigatório de cada item:
 
 1. Implementar
 2. Commit, em Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`)
 3. Informar ao desenvolvedor o que testar, com passos e resultado esperado
 4. Aguardar confirmação antes de seguir
-5. Confirmada a fase, entregar em **seção própria** um prompt pronto para colar, que abra a fase seguinte em outra sessão
+5. Confirmado um item grande (como Documentos), entregar em **seção própria** um prompt pronto para colar, que abra o próximo em outra sessão
 
-Fase grande demais para um commit só: dividir em partes testáveis e aplicar o mesmo ciclo em cada parte. Problema reportado vira correção com novo commit antes de prosseguir.
+Item grande demais para um commit só: dividir em partes testáveis e aplicar o mesmo ciclo em cada parte. Problema reportado vira correção com novo commit antes de prosseguir.
+
+**Produção:** todo push na `main` publica em `https://painel-gestao-projeto-social.vercel.app`. Commitar à vontade; **push só quando o desenvolvedor pedir**. O banco é um só: migration aplicada é migration em produção — só aditiva, ou combinada antes.
 
 ### O prompt de passagem
 
@@ -717,15 +731,15 @@ Existe porque a sessão seguinte começa sem nada do que foi conversado nesta. O
 
 Escrito para quem chega do zero, nunca "continue de onde paramos". Contém:
 
-- Em que fase o projeto está e qual é a próxima, com o commit em que a anterior terminou
-- O escopo da fase, conforme o roteiro, e o critério de pronto
+- Em que ponto o projeto está (v1 em produção) e qual é o próximo item, com o commit em que o anterior terminou
+- O escopo do item, conforme o backlog, e o critério de pronto
 - As seções deste documento que precisam ser relidas antes de começar
 - O que já existe e vai ser usado — módulos, componentes, convenções — para não ser reimplementado
-- As decisões em aberto e as armadilhas conhecidas da fase
+- As decisões em aberto e as armadilhas conhecidas do item
 
 Vai em bloco de código, para ser copiado inteiro sem edição.
 
-Antes de começar cada fase, reler a seção deste documento que trata dela — em especial a de graduação, que tem dois cortes de idade diferentes.
+Antes de começar cada item, reler a seção deste documento que trata dele — em especial a de graduação, que tem dois cortes de idade diferentes.
 
 Se algo a implementar contrariar este documento, ou se o documento for ambíguo, parar e perguntar ao desenvolvedor. Nunca decidir sozinho o que o documento já define.
 
