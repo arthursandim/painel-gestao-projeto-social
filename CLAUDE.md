@@ -432,7 +432,7 @@ Pedido do desenvolvedor em 2026-10-04, para a fase 7. O painel mostra o históri
 - Mesma fonte do histórico da fase 6: registros de `Presenca` agrupados por turma e dia. Dia sem aula não tem registro e não aparece
 - Cada linha: data, turma, presentes, faltas e total; tocar abre a chamada em modo edição, como no histórico
 - Semana calculada no fuso do projeto (`hojeNoProjeto()`), nunca no do servidor
-- **Em aberto:** a semana começa no domingo ou na segunda — perguntar ao desenvolvedor ao abrir a fase 7
+- A semana vai de **segunda a domingo** (decidido pelo desenvolvedor em 2026-10-04). No domingo, mostra a semana que começou na segunda anterior
 
 O default 3 não é arbitrário: os termos assinados pelas famílias estabelecem que três faltas consecutivas ensejam desligamento. O termo fala em desligamento automático; **o app é deliberadamente mais cauteloso.**
 
