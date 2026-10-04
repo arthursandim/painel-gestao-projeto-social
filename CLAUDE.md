@@ -283,6 +283,16 @@ Regra: mudou texto de termo ou campo impresso → incrementa a versão. Ajuste v
 
 **A ficha impressa não muda na v1.** Campos que existem só no digital não aparecem nela.
 
+### Ficha assinada bloqueia nova impressão
+
+Decidido em 2026-10-04, para a fase 5 (depende da tabela `Documento`). Enviada a ficha assinada, a impressão de uma ficha nova passa a ser **só do `ADMIN`**.
+
+- Gatilho: existe ficha **vigente da variante atual** do aluno — `ficha-menor` para menor, `ficha-adulto` para adulto, a variante pelo nascimento, como no gerador
+- Ficha de menor vigente **não** bloqueia a impressão da adulta. Aos 18 anos o alerta "Ficha a refazer" continua resolvível por `INSCRICOES`, sem depender do admin
+- Bloqueado, `INSCRICOES` não imprime: no lugar da impressão, a tela oferece a visualização da ficha assinada
+- O bloqueio é **no servidor**: a rota `/alunos/[id]/ficha` recusa quem não é admin. Esconder o botão não é permissão
+- O admin imprime normalmente, e a tela avisa que já existe ficha assinada vigente. O sistema sinaliza, o admin decide
+
 ---
 
 ## Documentos
@@ -316,6 +326,23 @@ Registro: aluno, tipo, nome, caminho, **hash SHA-256**, tamanho, data de upload,
 ### Storage
 
 Supabase Storage, bucket privado, acesso só por URL assinada de curta duração. **Não usar Google Drive.**
+
+### Visualizar não é baixar
+
+Decidido em 2026-10-04. **Só o `ADMIN` baixa documentos**, de qualquer tipo. `INSCRICOES` apenas visualiza. `PROFESSOR` continua sem acesso a documento nenhum (ver "Visibilidade por campo").
+
+| Papel | Visualizar | Baixar |
+| --- | --- | --- |
+| `ADMIN` | Sim | Sim |
+| `INSCRICOES` | Sim | **Não** |
+| `PROFESSOR` | **Não** | **Não** |
+
+- Visualização abre dentro da página, sem botão de baixar nem de imprimir. PDF **não** vai para o visualizador nativo do navegador, que traz os dois botões na barra
+- A URL assinada de visualização tem vida curta e é gerada por pedido. URL de download só é gerada para admin, no servidor
+
+**Limite assumido:** para mostrar o arquivo, o navegador recebe o arquivo inteiro. Quem quiser salvar consegue — print da tela, ferramentas do navegador. A regra **dificulta, não impede**. A proteção que vale de fato é a do servidor: o professor não recebe nada e `INSCRICOES` nunca recebe URL de download.
+
+Alternativa avaliada e descartada: o servidor converter o PDF em imagem com marca d'água. Exige renderizador de PDF nativo na Vercel, dobra o armazenamento e não impede o print. O que ela traria de útil é a **marca d'água com quem visualizou e quando** — fica como melhoria futura, se a diretoria sentir necessidade.
 
 ---
 
@@ -530,6 +557,8 @@ O que vai junto para a fase 5, porque depende do mesmo armazenamento:
 - **Foto do aluno** (câmera e arquivo), adiada da fase 3
 - Os alertas **Documento pendente** e **Ficha a refazer** do painel. A fase 7 entrega os outros três alertas e a ocupação das turmas. Sem a tabela de documentos preenchida, "documento pendente" marcaria todos os alunos.
 - O preenchimento de `temFichaMenorVigente` em `lib/avisosAluno.ts` e o aviso "documento obrigatório faltando" no cadastro
+- O bloqueio de nova impressão depois da ficha assinada, hoje liberada a `INSCRICOES` por `podeImprimirFicha` em `lib/ficha.ts` (ver "Ficha impressa › Ficha assinada bloqueia nova impressão")
+- Visualizar sem baixar: download só para admin (ver "Documentos › Visualizar não é baixar")
 
 Decisões já tomadas para a fase 5. **As de armazenamento são provisórias**, porque é justamente o que vai ser rediscutido:
 
@@ -607,6 +636,8 @@ O risco não é o app não funcionar. É funcionar **errado de um jeito que pass
 - **Documento substituído.** Duas versões do mesmo tipo; a anterior continua acessível e marcada como não-vigente.
 - **Hash.** Confere com o arquivo armazenado.
 - **Variante da ficha.** 17 anos e 11 meses → ficha de menor; no dia seguinte ao aniversário de 18, alerta.
+- **Reimpressão bloqueada.** Com ficha assinada vigente, `INSCRICOES` abrindo `/alunos/[id]/ficha` pela URL é recusado; admin imprime. Aluno de 18 anos com só ficha de menor vigente: `INSCRICOES` imprime a adulta.
+- **Download só para admin.** Logado como `INSCRICOES`, pedir à API a URL de download de um documento → recusado. A de visualização vem.
 - **Corte da turma.** 11 anos, 11 meses e 29 dias → ainda apto a Kids; no dia seguinte, aviso.
 - **Corte da escala.** 14 anos em Jovens/Adultos oferece faixas kids **sem aviso nenhum** (é normal). Aos 16, alerta e escala adulta.
 - **Turma cheia.** `INSCRICOES` é barrado; admin autoriza e a matrícula grava com o registro da autorização.
