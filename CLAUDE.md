@@ -656,6 +656,8 @@ Situação em 2026-10-04: fases 1, 2, 3, 4, 6, 7 e 8 concluídas. **Nova ordem, 
 
 **Deploy feito em 2026-10-04**, checklist de produção aprovado pelo desenvolvedor (câmera, PWA, offline, permissões): `https://painel-gestao-projeto-social.vercel.app`, deploy automático a cada push na `main`. Falta a fase 5. Passo a passo e checklist em `docs/deploy.md`. Variáveis só em **Production** na Vercel (o banco é um só; preview gravaria nos dados reais) e funções em `gru1`, a região do Supabase (`vercel.json`).
 
+**Supabase acordado:** o plano gratuito pausa o projeto depois de 7 dias sem atividade. Um cron diário da Vercel (`vercel.json`) chama `/api/manter-ativo`, que faz um `SELECT 1`. A rota fica fora do login (`proxy.ts`) e é protegida pelo `CRON_SECRET` (variável em Production na Vercel e no `.env.local`); sem ele, recusa tudo. Não remover o cron nem a variável.
+
 Os números continuam sendo o nome de cada fase, para não desencontrar das referências deste documento ("depois da fase 6", "regra da fase 8") e do histórico de commits.
 
 O que vai junto para a fase 5, porque depende do mesmo armazenamento:

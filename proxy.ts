@@ -81,6 +81,8 @@ export const config = {
     // pagariam uma chamada de rede por requisição. O manifesto, o service
     // worker e a página offline também ficam fora: o navegador os busca sem
     // cookie, e o redirecionamento para /login quebraria a instalação do PWA.
-    "/((?!_next/static|_next/image|favicon\\.ico|manifest\\.webmanifest|sw\\.js|offline\\.html|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico)$).*)",
+    // O /api/manter-ativo é chamado pelo cron da Vercel, sem sessão; quem o
+    // protege é o CRON_SECRET, dentro da própria rota.
+    "/((?!_next/static|_next/image|favicon\\.ico|manifest\\.webmanifest|sw\\.js|offline\\.html|api/manter-ativo|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico)$).*)",
   ],
 };

@@ -28,6 +28,7 @@ Storage que o desenvolvimento.
    | `NEXT_PUBLIC_SUPABASE_URL` | o mesmo do `.env.local` |
    | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | o mesmo do `.env.local` |
    | `SUPABASE_SECRET_KEY` | o mesmo do `.env.local` |
+   | `CRON_SECRET` | o mesmo do `.env.local` — protege o cron que mantém o Supabase acordado |
 
    - **Não** cadastrar `SEED_*` nem `DEV_ORIGINS`: só servem no computador.
    - **Nunca** criar `NEXT_PUBLIC_SUPABASE_SECRET_KEY`: o prefixo publica a chave
@@ -67,6 +68,20 @@ Pelo celular, em HTTPS — é aqui que câmera e PWA funcionam de verdade.
   voltar a rede → "Tentar de novo".
 - **Nada de aluno em cache:** Chrome do computador → DevTools → Application →
   Cache storage → só `engenho-v…` com `offline.html`, ícones e `/_next/static`.
+
+## Supabase acordado (cron)
+
+No plano gratuito, o Supabase **pausa o projeto depois de 7 dias sem
+atividade**. Para isso não acontecer num recesso, o `vercel.json` agenda um cron
+diário (09:00 UTC, 06:00 em SC) que chama `/api/manter-ativo`; a rota faz um
+`SELECT 1` no banco e não toca em dado nenhum.
+
+- A rota só responde a quem manda o `CRON_SECRET` (a Vercel manda sozinho nas
+  chamadas do cron). Sem a variável cadastrada, ela recusa tudo — e o projeto
+  volta a correr o risco de pausar.
+- Conferir: Vercel → **Settings → Cron Jobs** → o job aparece; **Run** executa
+  na hora. Em **Logs**, a chamada deve ter status 200. Status 401 = `CRON_SECRET`
+  faltando ou diferente do `.env.local`.
 
 ## Se algo der errado
 
