@@ -4,14 +4,15 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 
 import { FormAtivoItem } from "./form-ativo";
+import { FormMovimento } from "./form-movimento";
 import { BotaoVoltar } from "@/components/botao-voltar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { exigirAcesso } from "@/lib/auth";
-import { formatarMomentoBr } from "@/lib/data";
-import { abaixoDoMinimo, ROTULO_ESTADO } from "@/lib/estoque";
+import { formatarDiaBr, formatarMomentoBr, hojeNoProjeto } from "@/lib/data";
+import { abaixoDoMinimo, ROTULO_ESTADO, ROTULO_TIPO_MOVIMENTO } from "@/lib/estoque";
 import { contagemDoItem } from "@/lib/inventario";
 import { ehAdmin } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
@@ -41,6 +42,19 @@ export default async function ItemPage({ params }: PageProps<"/inventario/[id]">
         atualizadoEm: true,
         criadoPor: { select: { nome: true } },
         atualizadoPor: { select: { nome: true } },
+        // Mais recente primeiro: data do movimento, depois ordem de digitação.
+        movimentos: {
+          orderBy: [{ data: "desc" }, { criadoEm: "desc" }],
+          select: {
+            id: true,
+            tipo: true,
+            quantidade: true,
+            motivo: true,
+            data: true,
+            criadoEm: true,
+            autor: { select: { nome: true } },
+          },
+        },
       },
     }),
     contagemDoItem(id),
@@ -135,7 +149,97 @@ export default async function ItemPage({ params }: PageProps<"/inventario/[id]">
           admin={ehAdmin(usuario.papeis)}
         />
       </div>
+
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-lg font-medium">Movimentos de estoque</h2>
+          <p className="text-muted-foreground text-sm">
+            O total sai daqui. Correção de contagem também é um movimento, com motivo.
+          </p>
+        </div>
+
+        {item.ativo ? (
+          <FormMovimento
+            itemId={item.id}
+            disponivel={contagem.disponivel}
+            unidade={un}
+            hojeIso={hojeNoProjeto()}
+          />
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            Item inativo não recebe movimento. Reative para lançar.
+          </p>
+        )}
+
+        {/* Cartões abaixo de 768 px, tabela acima — mesma lista. */}
+        <ul className="space-y-3 md:hidden">
+          {item.movimentos.map((m) => (
+            <li key={m.id}>
+              <Card>
+                <CardContent className="space-y-1 pt-6 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <SeloTipo tipo={m.tipo} />
+                    <span className="font-medium tabular-nums">
+                      {m.tipo === "ENTRADA" ? "+" : "−"}
+                      {m.quantidade} {un}
+                    </span>
+                  </div>
+                  <p>{m.motivo}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {formatarDiaBr(m.data)} · lançado em {formatarMomentoBr(m.criadoEm)}
+                    {m.autor ? ` por ${m.autor.nome}` : ""}
+                  </p>
+                </CardContent>
+              </Card>
+            </li>
+          ))}
+        </ul>
+
+        <div className="hidden md:block">
+          <div className="overflow-hidden rounded-lg border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-left">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Data</th>
+                  <th className="px-3 py-2 font-medium">Tipo</th>
+                  <th className="px-3 py-2 text-right font-medium">Quantidade</th>
+                  <th className="px-3 py-2 font-medium">Motivo</th>
+                  <th className="px-3 py-2 font-medium">Lançado por</th>
+                </tr>
+              </thead>
+              <tbody>
+                {item.movimentos.map((m) => (
+                  <tr key={m.id} className="border-t align-top">
+                    <td className="px-3 py-2">{formatarDiaBr(m.data)}</td>
+                    <td className="px-3 py-2">
+                      <SeloTipo tipo={m.tipo} />
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {m.tipo === "ENTRADA" ? "+" : "−"}
+                      {m.quantidade}
+                    </td>
+                    <td className="px-3 py-2">{m.motivo}</td>
+                    <td className="text-muted-foreground px-3 py-2 text-xs">
+                      {m.autor?.nome ?? "—"}
+                      <br />
+                      {formatarMomentoBr(m.criadoEm)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </section>
+  );
+}
+
+function SeloTipo({ tipo }: { tipo: keyof typeof ROTULO_TIPO_MOVIMENTO }) {
+  return (
+    <Badge variant={tipo === "ENTRADA" ? "secondary" : "outline"}>
+      {ROTULO_TIPO_MOVIMENTO[tipo]}
+    </Badge>
   );
 }
 

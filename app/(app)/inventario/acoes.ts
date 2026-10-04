@@ -10,11 +10,13 @@ import { diaParaData, hojeNoProjeto } from "@/lib/data";
 import {
   camposItemDoForm,
   decidirComEmprestimoAberto,
+  erroDeSaida,
   esquemaItem,
   esquemaItemNovo,
+  esquemaMovimento,
   MOTIVO_CADASTRO,
 } from "@/lib/estoque";
-import { travarItem } from "@/lib/inventario";
+import { contagemDoItem, travarItem } from "@/lib/inventario";
 import { ehAdmin, papeisDaRota } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
 
@@ -143,5 +145,55 @@ export async function alterarAtivoItem(_estado: EstadoItem, form: FormData): Pro
 
   revalidatePath("/inventario");
   revalidatePath(`/inventario/${id}`);
+  return resultado;
+}
+
+/**
+ * Entrada ou saída de estoque. É o único caminho pelo qual o total muda — a
+ * correção de saldo também é um movimento, com motivo.
+ */
+export async function registrarMovimento(
+  _estado: EstadoItem,
+  form: FormData,
+): Promise<EstadoItem> {
+  const autor = await exigirPapeis(PAPEIS_INVENTARIO);
+
+  const analise = esquemaMovimento.safeParse({
+    itemId: form.get("itemId"),
+    tipo: form.get("tipo"),
+    quantidade: form.get("quantidade"),
+    data: form.get("data"),
+    motivo: form.get("motivo"),
+  });
+  if (!analise.success) return { erro: primeiroErro(analise.error) };
+  const { itemId, tipo, quantidade, data, motivo } = analise.data;
+
+  const resultado = await prisma.$transaction(async (tx): Promise<EstadoItem> => {
+    // Saldo conferido com a linha travada: duas saídas simultâneas não levam
+    // juntas mais do que existe, nem uma saída leva a unidade que um empréstimo
+    // acabou de reservar.
+    if (!(await travarItem(tx, itemId))) return { erro: "Item não encontrado." };
+
+    const item = await tx.item.findUniqueOrThrow({
+      where: { id: itemId },
+      select: { ativo: true },
+    });
+    if (!item.ativo) return { erro: "Item inativo não recebe movimento. Reative antes." };
+
+    if (tipo === TipoMovimento.SAIDA) {
+      const erro = erroDeSaida(quantidade, await contagemDoItem(itemId, tx));
+      if (erro) return { erro };
+    }
+
+    await tx.movimentoEstoque.create({
+      data: { itemId, tipo, quantidade, motivo, data: diaParaData(data), autorId: autor.id },
+    });
+    return {
+      ok: `${tipo === TipoMovimento.ENTRADA ? "Entrada" : "Saída"} de ${quantidade} registrada.`,
+    };
+  });
+
+  revalidatePath("/inventario");
+  revalidatePath(`/inventario/${itemId}`);
   return resultado;
 }

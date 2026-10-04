@@ -38,8 +38,10 @@ import {
   contagem,
   contagensPorItem,
   decidirComEmprestimoAberto,
+  erroDeSaida,
   esquemaItem,
   esquemaItemNovo,
+  esquemaMovimento,
 } from "../lib/estoque";
 import {
   TIPO_DOCUMENTO_DA_VARIANTE,
@@ -1114,6 +1116,33 @@ checa("mínimo vazio é recusado", !esquemaItem.safeParse({ ...itemBase, quantid
 checa("descrição vazia é recusada", !esquemaItem.safeParse({ ...itemBase, descricao: "  " }).success);
 // A edição não carrega quantidade: o esquema de edição a ignora.
 checa("edição não aceita quantidade como campo", !("quantidade" in (esquemaItem.safeParse({ ...itemBase, quantidade: "99" }).data ?? {})));
+
+console.log("\nInventário: saída maior que o saldo é barrada pela aplicação");
+
+// Faixa: 3 no total, nenhuma emprestada.
+checa("saída igual ao disponível passa", erroDeSaida(3, contagem(3, 0, 0)) === null);
+checa("saída de 5 num item com 3 é barrada", erroDeSaida(5, contagem(3, 0, 0)) !== null);
+// Kimono único emprestado: total 1, disponível 0. A unidade está com o aluno.
+checa("saída não leva unidade emprestada", erroDeSaida(1, contagem(1, 0, 1)) !== null);
+checa("saída cabe no que sobrou fora do empréstimo", erroDeSaida(2, contagem(3, 0, 1)) === null);
+checa("controle: comparar com o total deixaria passar", 1 <= contagem(1, 0, 1).total);
+
+console.log("\nInventário: movimento");
+
+const movBase = {
+  itemId: "00000000-0000-4000-8000-000000000000",
+  tipo: "SAIDA",
+  quantidade: "2",
+  data: hojeNoProjeto(),
+  motivo: "Descarte por desgaste",
+};
+checa("movimento válido passa", esquemaMovimento.safeParse(movBase).success);
+checa("motivo vazio é recusado", !esquemaMovimento.safeParse({ ...movBase, motivo: " " }).success);
+checa("quantidade 0 é recusada (sentido é o tipo)", !esquemaMovimento.safeParse({ ...movBase, quantidade: "0" }).success);
+checa("quantidade negativa é recusada", !esquemaMovimento.safeParse({ ...movBase, quantidade: "-2" }).success);
+checa("tipo fora do enum é recusado", !esquemaMovimento.safeParse({ ...movBase, tipo: "AJUSTE" }).success);
+checa("data futura é recusada", !esquemaMovimento.safeParse({ ...movBase, data: deslocarDia(hojeNoProjeto(), 1) }).success);
+checa("data retroativa passa", esquemaMovimento.safeParse({ ...movBase, data: deslocarDia(hojeNoProjeto(), -30) }).success);
 
 console.log(
   falhas === 0

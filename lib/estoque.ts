@@ -8,7 +8,8 @@
 import { EstadoConservacao, TipoMovimento } from "@prisma/client";
 import { z } from "zod";
 
-import { opcional } from "@/lib/esquemaAluno";
+import { diaEhFuturo } from "@/lib/data";
+import { dia, opcional } from "@/lib/esquemaAluno";
 
 export const ROTULO_ESTADO: Record<EstadoConservacao, string> = {
   NOVO: "Novo",
@@ -186,3 +187,54 @@ export function camposItemDoForm(form: FormData): Record<string, unknown> {
 
 /** Motivo do primeiro movimento, o que nasce com o cadastro. */
 export const MOTIVO_CADASTRO = "Cadastro do item";
+
+// ---------------------------------------------------------------------------
+// Movimentos
+
+export const ROTULO_TIPO_MOVIMENTO: Record<TipoMovimento, string> = {
+  ENTRADA: "Entrada",
+  SAIDA: "Saída",
+};
+
+/**
+ * Data de movimento, empréstimo ou devolução (decisão da fase 8, como na
+ * chamada): futuro bloqueado aqui, no servidor; retroativa passa e a tela avisa.
+ */
+export const diaNaoFuturo = (rotulo: string) =>
+  dia(rotulo).refine((v) => !diaEhFuturo(v), {
+    error: `${rotulo}: não pode estar no futuro.`,
+  });
+
+export const campoMotivo = z
+  .string({ error: "Informe o motivo." })
+  .trim()
+  .min(3, { error: "Informe o motivo." })
+  .max(300);
+
+export const esquemaMovimento = z.object({
+  itemId: z.uuid({ error: "Item inválido." }),
+  tipo: z.enum(TipoMovimento, { error: "Escolha entrada ou saída." }),
+  quantidade: campoQuantidade,
+  data: diaNaoFuturo("Data"),
+  motivo: campoMotivo,
+});
+
+/**
+ * Saída definitiva (perda, descarte, doação) só do que está **disponível**, não
+ * do total: unidade emprestada está com um aluno e sai pelo empréstimo —
+ * devolvida, ou marcada como perdida, que gera a própria SAIDA. Se a saída
+ * pudesse levar a unidade emprestada, o disponível ficaria negativo.
+ *
+ * O banco não barra (o check constraint garante quantidade positiva, não saldo
+ * suficiente): esta é a regra de aplicação da fase 8.
+ */
+export function erroDeSaida(quantidade: number, c: Contagem): string | null {
+  if (quantidade <= c.disponivel) return null;
+  const emprestados =
+    c.emprestados === 1
+      ? " A unidade emprestada sai pela devolução ou pela marcação de perdido."
+      : c.emprestados > 1
+        ? ` As ${c.emprestados} emprestadas saem pela devolução ou pela marcação de perdido.`
+        : "";
+  return `Saída de ${quantidade} maior que o disponível (${c.disponivel}).${emprestados}`;
+}
