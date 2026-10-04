@@ -29,6 +29,7 @@ export default async function InventarioPage({ searchParams }: PageProps<"/inven
   const situacao =
     FILTROS_SITUACAO.find((f) => f.valor === filtros.situacao)?.valor ?? "ATIVO";
   const baixo = filtros.baixo === "1";
+  const emprestado = filtros.emprestado === "1";
 
   const where: Prisma.ItemWhereInput = {
     ...(situacao === "TODOS" ? {} : { ativo: situacao === "ATIVO" }),
@@ -70,7 +71,7 @@ export default async function InventarioPage({ searchParams }: PageProps<"/inven
       const c = contagens.get(item.id) ?? CONTAGEM_ZERADA;
       return { ...item, ...c, baixo: abaixoDoMinimo(c.total, item.quantidadeMinima) };
     })
-    .filter((l) => !baixo || l.baixo);
+    .filter((l) => (!baixo || l.baixo) && (!emprestado || l.emprestados > 0));
 
   return (
     <section className="space-y-6">
@@ -101,7 +102,7 @@ export default async function InventarioPage({ searchParams }: PageProps<"/inven
       {/* Busca por GET: o filtro fica na URL, como na lista de alunos. */}
       <Card>
         <CardContent className="pt-6">
-          <form method="get" className="grid gap-3 md:grid-cols-3 lg:grid-cols-[1fr_auto_auto_auto_auto]">
+          <form method="get" className="grid gap-3 md:grid-cols-3 lg:grid-cols-[1fr_auto_auto_auto_auto_auto]">
             <div className="space-y-2">
               <Label htmlFor="q">Buscar</Label>
               <Input
@@ -150,6 +151,19 @@ export default async function InventarioPage({ searchParams }: PageProps<"/inven
             </div>
 
             <div className="flex items-end">
+              <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="emprestado"
+                  value="1"
+                  defaultChecked={emprestado}
+                  className="size-5"
+                />
+                Só com empréstimo em aberto
+              </label>
+            </div>
+
+            <div className="flex items-end">
               <Button type="submit" variant="secondary" className="min-h-11 w-full">
                 <Search className="size-4" />
                 Filtrar
@@ -164,6 +178,7 @@ export default async function InventarioPage({ searchParams }: PageProps<"/inven
           ? "Nenhum item com esses filtros."
           : `${linhas.length} ${linhas.length === 1 ? "item" : "itens"}.`}
         {baixo ? " Itens cujo total está abaixo da quantidade mínima cadastrada." : ""}
+        {emprestado ? " Itens com pelo menos uma unidade emprestada agora." : ""}
       </p>
 
       {/* Abaixo de 768 px a tabela vira cartões empilhados — nunca rolagem

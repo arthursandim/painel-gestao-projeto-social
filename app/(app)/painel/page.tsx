@@ -1,5 +1,5 @@
-import { StatusAluno } from "@prisma/client";
-import { ArrowRight, CalendarX, History, RefreshCw, Shirt } from "lucide-react";
+import { StatusAluno, StatusEmprestimo } from "@prisma/client";
+import { ArrowRight, CalendarX, HandHelping, History, RefreshCw, Shirt } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -12,6 +12,7 @@ import { avisosDoAluno, type CodigoAviso } from "@/lib/avisosAluno";
 import { emRiscoDeEvasao } from "@/lib/chamada";
 import { dataParaDia, deslocarDia, formatarDiaBr, hojeNoProjeto, segundaDaSemana } from "@/lib/data";
 import { frequenciaDosAlunos, lerLimiarFaltas } from "@/lib/frequencia";
+import { emprestimosParaTela } from "@/lib/inventario";
 import { ocupacaoDasTurmas } from "@/lib/ocupacao";
 import { podeAcessar } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
@@ -110,14 +111,16 @@ export default async function PainelPage() {
   // é card: quem não abre o destino não vê o bloco.
   const veAlunos = podeAcessar(usuario.papeis, "/alunos");
   const veChamada = podeAcessar(usuario.papeis, "/chamada");
+  const veInventario = podeAcessar(usuario.papeis, "/inventario");
 
   const segunda = segundaDaSemana(hoje);
   const domingo = deslocarDia(segunda, 6);
 
-  const [alertas, ocupacao, turmas] = await Promise.all([
+  const [alertas, ocupacao, turmas, emprestimos] = await Promise.all([
     veAlunos ? contarAlertas(usuario.papeis, hoje) : null,
     ocupacaoDasTurmas(),
     prisma.turma.findMany({ select: { id: true, nome: true } }),
+    veInventario ? emprestimosParaTela({ status: StatusEmprestimo.EMPRESTADO }) : null,
   ]);
   const nomeTurma = new Map(turmas.map((t) => [t.id, t.nome]));
   const chamadas = veChamada
@@ -236,6 +239,108 @@ export default async function PainelPage() {
             </ul>
           )}
         </section>
+      ) : null}
+
+      {emprestimos ? <ItensEmprestados emprestimos={emprestimos} hoje={hoje} /> : null}
+    </section>
+  );
+}
+
+/** Quantos itens estão fora mostrados no painel; o resto fica na lista completa. */
+const LIMITE_EMPRESTIMOS_PAINEL = 8;
+
+function diasDesde(diaIso: string, hojeIso: string): number {
+  return Math.round(
+    (Date.parse(`${hojeIso}T00:00:00Z`) - Date.parse(`${diaIso}T00:00:00Z`)) / 86_400_000,
+  );
+}
+
+/**
+ * Itens emprestados agora (pedido do desenvolvedor na fase 8). Só para quem
+ * abre /inventario. Informa, não age: devolução e perda se registram no
+ * inventário. Os que estão fora há mais tempo primeiro — são os que alguém
+ * precisa cobrar.
+ */
+function ItensEmprestados({
+  emprestimos,
+  hoje,
+}: {
+  emprestimos: Awaited<ReturnType<typeof emprestimosParaTela>>;
+  hoje: string;
+}) {
+  const desligados = emprestimos.filter((e) => !e.aluno.ativo).length;
+  const maisAntigos = [...emprestimos]
+    .sort((a, b) => (a.dataEmprestimo < b.dataEmprestimo ? -1 : a.dataEmprestimo > b.dataEmprestimo ? 1 : 0))
+    .slice(0, LIMITE_EMPRESTIMOS_PAINEL);
+
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="flex items-center gap-2 text-lg font-medium">
+            <HandHelping className="text-muted-foreground size-4" />
+            Itens emprestados
+          </h2>
+          <p className="text-muted-foreground text-sm">
+            {emprestimos.length === 0
+              ? "Nenhum item fora agora."
+              : `${emprestimos.length} ${emprestimos.length === 1 ? "empréstimo em aberto" : "empréstimos em aberto"}${
+                  emprestimos.length > maisAntigos.length
+                    ? `; os ${maisAntigos.length} há mais tempo fora`
+                    : ""
+                }.`}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {desligados > 0 ? (
+            <Button asChild variant="outline" className="border-destructive/50 text-destructive min-h-11">
+              <Link href="/inventario/emprestimos?desligado=1">
+                {desligados} com aluno desligado
+              </Link>
+            </Button>
+          ) : null}
+          <Button asChild variant="outline" className="min-h-11">
+            <Link href="/inventario/emprestimos">
+              Todos os empréstimos
+              <ArrowRight className="size-4" />
+            </Link>
+          </Button>
+        </div>
+      </div>
+
+      {maisAntigos.length > 0 ? (
+        <ul className="divide-y rounded-lg border">
+          {maisAntigos.map((e) => {
+            const dias = diasDesde(e.dataEmprestimo, hoje);
+            return (
+              <li key={e.id}>
+                <Link
+                  href={`/inventario/${e.item.id}`}
+                  className="hover:bg-muted/40 flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-2 text-sm"
+                >
+                  <span className="space-y-0.5">
+                    <span className="block font-medium">
+                      {e.item.descricao}
+                      {e.item.identificacao ? (
+                        <span className="text-muted-foreground font-normal"> ({e.item.identificacao})</span>
+                      ) : null}
+                    </span>
+                    <span className="text-muted-foreground block">
+                      {e.aluno.nome} · {e.aluno.matricula} · {e.aluno.turma}
+                    </span>
+                  </span>
+                  <span className="flex flex-wrap items-center gap-2">
+                    {!e.aluno.ativo ? <Badge variant="destructive">Aluno desligado</Badge> : null}
+                    <span className="text-muted-foreground tabular-nums">
+                      desde {formatarDiaBr(e.dataEmprestimo)}
+                      {dias > 0 ? ` — ${dias} ${dias === 1 ? "dia" : "dias"}` : " — hoje"}
+                    </span>
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       ) : null}
     </section>
   );

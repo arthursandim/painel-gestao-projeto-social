@@ -510,6 +510,12 @@ Pedido do desenvolvedor em 2026-10-04, para a fase 7. O painel mostra o históri
 - Semana calculada no fuso do projeto (`hojeNoProjeto()`), nunca no do servidor
 - A semana vai de **segunda a domingo** (decidido pelo desenvolvedor em 2026-10-04). No domingo, mostra a semana que começou na segunda anterior
 
+### Itens emprestados
+
+Pedido do desenvolvedor em 2026-10-04, na fase 8. O painel mostra os empréstimos em aberto **só para quem abre `/inventario`** (`ADMIN`, `INVENTARIO`): quantos são, quantos de aluno desligado (atalho para `/inventario/emprestimos?desligado=1`) e os 8 há mais tempo fora, com item, aluno e "desde". Tocar abre o item; "Todos os empréstimos" leva à lista completa. Informa, não age — devolução e perda se registram no inventário. Não é um dos cinco alertas.
+
+Na lista `/inventario`, o filtro "Só com empréstimo em aberto" (`?emprestado=1`) mostra os itens com alguma unidade emprestada agora.
+
 O default 3 não é arbitrário: os termos assinados pelas famílias estabelecem que três faltas consecutivas ensejam desligamento. O termo fala em desligamento automático; **o app é deliberadamente mais cauteloso.**
 
 ---
