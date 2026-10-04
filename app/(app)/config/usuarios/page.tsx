@@ -1,7 +1,9 @@
+import { Papel } from "@prisma/client";
 import type { Metadata } from "next";
 
 import {
   FormAtivo,
+  FormExcluir,
   FormNovoUsuario,
   FormPapeis,
   FormSenha,
@@ -20,6 +22,7 @@ import { Separator } from "@/components/ui/separator";
 import { usuarioAtual } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ROTULO_PAPEL } from "@/lib/permissoes";
+import { CONTAGEM_DE_AUTORIA, descreverAutoria, erroDeExclusao } from "@/lib/usuarios";
 
 export const metadata: Metadata = { title: "Usuários — Engenho Cidadão" };
 
@@ -38,8 +41,10 @@ export default async function UsuariosPage() {
       ativo: true,
       authUserId: true,
       criadoEm: true,
+      _count: { select: CONTAGEM_DE_AUTORIA },
     },
   });
+  const adminsAtivos = usuarios.filter((u) => u.ativo && u.papeis.includes(Papel.ADMIN)).length;
 
   return (
     <section className="space-y-6">
@@ -48,8 +53,9 @@ export default async function UsuariosPage() {
         <h1 className="text-2xl font-semibold">Usuários</h1>
         <p className="text-muted-foreground text-sm">
           Contas são criadas aqui e em nenhum outro lugar — não existe
-          auto-cadastro. Nada é apagado: quem sai é desativado e o histórico do
-          que lançou continua atribuído a ele.
+          auto-cadastro. Quem sai é desativado e o histórico do que lançou
+          continua atribuído a ele. Só a conta que nunca registrou nada pode ser
+          excluída.
         </p>
       </div>
 
@@ -128,6 +134,22 @@ export default async function UsuariosPage() {
                   </div>
                 )}
               </div>
+
+              {usuario.id === eu?.id ? null : (
+                <>
+                  <Separator />
+                  <FormExcluir
+                    usuarioId={usuario.id}
+                    nome={usuario.nome}
+                    impedimento={erroDeExclusao({
+                      ehVoce: false,
+                      ehUltimoAdminAtivo:
+                        usuario.ativo && usuario.papeis.includes(Papel.ADMIN) && adminsAtivos === 1,
+                      autoria: descreverAutoria(usuario._count),
+                    })}
+                  />
+                </>
+              )}
             </CardContent>
           </Card>
         ))}

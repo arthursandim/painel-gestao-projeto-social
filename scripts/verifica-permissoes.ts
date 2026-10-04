@@ -9,9 +9,10 @@
  * *aparece* onde deve aparecer. Sem elas, um seletor que devolvesse um objeto
  * vazio passaria em todo o resto do arquivo e ninguém notaria.
  */
-import { Papel } from "@prisma/client";
+import { Papel, Prisma } from "@prisma/client";
 
 import { podeImprimirFicha } from "../lib/ficha";
+import { descreverAutoria, erroDeExclusao, RELACOES_DE_AUTORIA } from "../lib/usuarios";
 import {
   MODULOS,
   podeAcessar,
@@ -262,6 +263,34 @@ const vespera = alunoParaEmprestimo({ ...registroBase, nascimento: new Date("200
 const aniversario = alunoParaEmprestimo({ ...registroBase, nascimento: new Date("2008-10-04T00:00:00.000Z") }, HOJE_PERM);
 checa("17 anos e 364 dias ainda é menor", vespera.menor);
 checa("no aniversário de 18 já é adulto", !aniversario.menor);
+
+console.log("\nExcluir usuário: só quem nunca registrou nada");
+
+// Toda relação de lista do Usuario no schema é uma relação de autoria. Se
+// alguém criar uma coluna de autor nova e não a puser em RELACOES_DE_AUTORIA,
+// a exclusão deixaria passar um usuário com registros — e este caso falha.
+const relacoesNoSchema = Prisma.dmmf.datamodel.models
+  .find((m) => m.name === "Usuario")!
+  .fields.filter((f) => f.kind === "object" && f.isList)
+  .map((f) => f.name)
+  .sort();
+const relacoesNaLista = Object.keys(RELACOES_DE_AUTORIA).sort();
+checa(
+  `toda relação de autoria do schema está na lista (${relacoesNoSchema.length})`,
+  relacoesNoSchema.join() === relacoesNaLista.join(),
+);
+checa("o schema tem relações de autoria (controle: a consulta acima achou o modelo)", relacoesNoSchema.length >= 18);
+
+const zerado = Object.fromEntries(relacoesNaLista.map((r) => [r, 0])) as Parameters<typeof descreverAutoria>[0];
+checa("sem registro nenhum, a autoria é vazia", descreverAutoria(zerado).length === 0);
+const comPresenca = { ...zerado, presencasRegistradas: 12 };
+checa("presença lançada aparece na descrição", descreverAutoria(comPresenca).join() === "12 presenças lançadas");
+
+const livre = { ehVoce: false, ehUltimoAdminAtivo: false, autoria: [] as string[] };
+checa("usuário sem registro pode ser excluído", erroDeExclusao(livre) === null);
+checa("com registro, não pode — desativa", erroDeExclusao({ ...livre, autoria: ["12 presenças lançadas"] }) !== null);
+checa("a própria conta, não", erroDeExclusao({ ...livre, ehVoce: true }) !== null);
+checa("o último admin ativo, não", erroDeExclusao({ ...livre, ehUltimoAdminAtivo: true }) !== null);
 
 console.log(
   falhas === 0

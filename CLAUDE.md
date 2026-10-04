@@ -71,6 +71,8 @@ Quatro papéis fixos em código, sem tela de permissão granular. **Um usuário 
 
 Usuários são criados **apenas por admin**. Não existe auto-cadastro.
 
+**Excluir usuário** (decidido em 2026-10-04): só o admin, em `/config/usuarios`, e **só quem nunca registrou nada** — conta criada por engano ou de teste depois da limpeza. Sai a linha em `Usuario` e o login no Supabase Auth. Quem tem qualquer registro de autoria só se desativa: as 18 chaves que apontam para `Usuario` são `ON DELETE SET NULL`, e excluir apagaria o autor da trilha em silêncio. Nunca a própria conta nem o último admin ativo. Regras em `lib/usuarios.ts`; `verifica-permissoes` confere contra o schema que toda relação de autoria está na lista.
+
 ### Visibilidade por campo (crítico)
 
 A mesma tela mostra menos dados dependendo do papel. **A API precisa devolver menos dados — esconder no React não é permissão.**

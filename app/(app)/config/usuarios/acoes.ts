@@ -7,6 +7,7 @@ import { z } from "zod";
 import { exigirPapeis } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { criarClienteAdmin } from "@/lib/supabase/admin";
+import { CONTAGEM_DE_AUTORIA, descreverAutoria, erroDeExclusao } from "@/lib/usuarios";
 
 export type EstadoForm = { erro?: string; ok?: string };
 
@@ -229,4 +230,74 @@ async function impedeSeForUltimoAdmin(usuarioId: string): Promise<string | null>
   return outrosAdmins > 0
     ? null
     : "Este é o único administrador ativo. Promova outro antes.";
+}
+
+/**
+ * Exclui um usuário que nunca registrou nada (decisão de 2026-10-04): a linha
+ * em Usuario e o login no Supabase Auth. Quem tem qualquer registro de autoria
+ * só pode ser desativado — ver lib/usuarios.ts.
+ *
+ * A linha é travada antes de contar: um registro novo apontando para ela
+ * (chave estrangeira) espera esta transação e, depois do DELETE, falha em vez
+ * de nascer sem autor.
+ */
+export async function excluirUsuario(
+  _estado: EstadoForm,
+  dados: FormData,
+): Promise<EstadoForm> {
+  const autor = await exigirPapeis(SOMENTE_ADMIN);
+
+  const usuarioId = z.uuid().safeParse(dados.get("usuarioId"));
+  if (!usuarioId.success) return { erro: "Usuário inválido." };
+
+  const resultado = await prisma.$transaction(
+    async (tx): Promise<EstadoForm & { authUserId?: string | null; nome?: string }> => {
+      const travado = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "Usuario" WHERE id = ${usuarioId.data}::uuid FOR UPDATE`;
+      if (travado.length === 0) return { erro: "Usuário não encontrado." };
+
+      const alvo = await tx.usuario.findUniqueOrThrow({
+        where: { id: usuarioId.data },
+        select: {
+          nome: true,
+          ativo: true,
+          papeis: true,
+          authUserId: true,
+          _count: { select: CONTAGEM_DE_AUTORIA },
+        },
+      });
+      const outrosAdmins =
+        alvo.ativo && alvo.papeis.includes(Papel.ADMIN)
+          ? await tx.usuario.count({
+              where: { id: { not: usuarioId.data }, ativo: true, papeis: { has: Papel.ADMIN } },
+            })
+          : 1;
+
+      const erro = erroDeExclusao({
+        ehVoce: usuarioId.data === autor.id,
+        ehUltimoAdminAtivo: outrosAdmins === 0,
+        autoria: descreverAutoria(alvo._count),
+      });
+      if (erro) return { erro };
+
+      await tx.usuario.delete({ where: { id: usuarioId.data } });
+      return { authUserId: alvo.authUserId, nome: alvo.nome };
+    },
+  );
+  if (resultado.erro) return { erro: resultado.erro };
+
+  // O login sai depois da linha: se o Auth falhar, sobra uma conta que não
+  // entra no app (usuarioAtual exige a linha em Usuario), e não o contrário.
+  if (resultado.authUserId) {
+    const { error } = await criarClienteAdmin().auth.admin.deleteUser(resultado.authUserId);
+    if (error) {
+      revalidatePath("/config/usuarios");
+      return {
+        erro: `${resultado.nome} saiu do app, mas o login no Supabase Auth não foi apagado (${error.message}). Ele não consegue entrar; apague pelo painel do Supabase.`,
+      };
+    }
+  }
+
+  revalidatePath("/config/usuarios");
+  return { ok: `${resultado.nome} excluído, com o login.` };
 }
