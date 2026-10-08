@@ -5,12 +5,14 @@
 //
 //   turma   → Kids até 11a11m29d. Aos 12 já é Jovens/Adultos.
 //   escala  → Kids até 15 anos.   Aos 16 passa para a escala adulta.
+//             No ano em que faz 16, ainda com 15, as duas escalas valem: a
+//             faixa adulta pode ser dada já nesse ano (decisão de 2026-10-07).
 //
 // O aluno de 12 a 15 anos treina em Jovens/Adultos usando faixa da escala kids.
 // Isso é normal e não gera aviso nenhum.
 import { Graduacao } from "@prisma/client";
 
-import { idadeHoje } from "@/lib/data";
+import { dataParaDia, hojeNoProjeto, idadeHoje } from "@/lib/data";
 
 export type Escala = "KIDS" | "ADULTO";
 
@@ -111,12 +113,36 @@ export function escalaDoAluno(
   return escalaPorIdade(idadeHoje(nascimento, hojeIso));
 }
 
+/**
+ * As escalas em que este aluno pode estar hoje.
+ *
+ * Uma só, menos no ano em que ele faz 16: ainda com 15, a faixa adulta já pode
+ * ser dada, e a kids continua valendo até o aniversário. Daí em diante, só a
+ * adulta. O aviso de troca de escala segue o aniversário — com faixa kids no
+ * ano de transição ninguém precisa ser reposicionado ainda.
+ *
+ * A primeira da lista é a que a idade manda: é ela que vale quando é preciso
+ * escolher uma só (a Branca da importação, por exemplo).
+ */
+export function escalasPermitidas(
+  nascimento: string | Date,
+  hojeIso: string = hojeNoProjeto(),
+): readonly Escala[] {
+  const idade = idadeHoje(nascimento, hojeIso);
+  if (idade >= IDADE_ESCALA_ADULTA) return ["ADULTO"];
+  const anoNascimento = Number(
+    (typeof nascimento === "string" ? nascimento : dataParaDia(nascimento)).slice(0, 4),
+  );
+  const anoHoje = Number(hojeIso.slice(0, 4));
+  return anoHoje - anoNascimento >= IDADE_ESCALA_ADULTA ? ["KIDS", "ADULTO"] : ["KIDS"];
+}
+
 /** As faixas que a lista suspensa deve oferecer para esta data de nascimento. */
 export function graduacoesDisponiveis(
   nascimento: string | Date,
   hojeIso?: string,
 ): readonly Graduacao[] {
-  return GRADUACOES_POR_ESCALA[escalaDoAluno(nascimento, hojeIso)];
+  return escalasPermitidas(nascimento, hojeIso).flatMap((e) => GRADUACOES_POR_ESCALA[e]);
 }
 
 /**
@@ -131,7 +157,7 @@ export function graduacaoCombinaComIdade(
   nascimento: string | Date,
   hojeIso?: string,
 ): boolean {
-  return escalaDaGraduacao(graduacao) === escalaDoAluno(nascimento, hojeIso);
+  return escalasPermitidas(nascimento, hojeIso).includes(escalaDaGraduacao(graduacao));
 }
 
 export function ehGrauValido(grau: number): boolean {

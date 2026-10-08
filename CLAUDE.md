@@ -202,16 +202,24 @@ São **dois cortes diferentes** e é o ponto que mais confunde na implementaçã
 | Regra | Corte |
 | --- | --- |
 | Turma | Kids até 11 anos, 11 meses e 29 dias. Aos **12** já é Jovens/Adultos |
-| Escala de graduação | Kids até 15 anos. Aos **16** passa para a escala adulta |
+| Escala de graduação | Kids até 15 anos. Aos **16** passa para a escala adulta. **No ano em que faz 16**, ainda com 15, valem as duas |
 
 O aluno de 12 a 15 anos treina na turma de Jovens/Adultos **usando faixa da escala kids**. Isso é situação normal, não inconsistência.
 
 **A escala é derivada da data de nascimento, nunca da turma.**
 
+### Ano de transição da escala
+
+Decidido em 2026-10-07, na importação da turma Jovens: a faixa adulta pode ser dada **já no ano em que o aluno faz 16**, mesmo com 15 anos. De 1º de janeiro desse ano até o aniversário, as duas escalas valem — a kids continua válida e a adulta já é aceita. Regra em `escalasPermitidas` (`lib/graduacao.ts`).
+
+- O aviso "Troca de escala" (faixa kids) continua disparando **no aniversário de 16**, não em janeiro
+- Faixa adulta antes do ano dos 16 continua sendo aviso e recusa
+- O corte da turma (12) **não** mudou: segue o aniversário
+
 ### Comportamento dinâmico do seletor
 
-- Digitada ou alterada a data de nascimento, o app recalcula a idade e o seletor passa a oferecer **uma escala só**, em tempo real, sem salvar
-- A escala oposta **não** fica disponível. Não é escolha de quem cadastra
+- Digitada ou alterada a data de nascimento, o app recalcula a idade e o seletor passa a oferecer **uma escala só**, em tempo real, sem salvar — no ano de transição, os dois grupos
+- Fora do ano de transição, a escala oposta **não** fica disponível. Não é escolha de quem cadastra
 - Se uma correção de data cruzar os 16 anos e a faixa já escolhida não existir na nova escala, o campo é limpo e o app avisa
 
 ### Turma preenchida pela idade
@@ -765,7 +773,7 @@ O risco não é o app não funcionar. É funcionar **errado de um jeito que pass
 - **Reimpressão bloqueada.** Com ficha assinada vigente, `INSCRICOES` abrindo `/alunos/[id]/ficha` pela URL é recusado; admin imprime. Aluno de 18 anos com só ficha de menor vigente: `INSCRICOES` imprime a adulta.
 - **Download só para admin.** Logado como `INSCRICOES`, pedir à API a URL de download de um documento → recusado. A de visualização vem.
 - **Corte da turma.** 11 anos, 11 meses e 29 dias → ainda apto a Kids; no dia seguinte, aviso.
-- **Corte da escala.** 14 anos em Jovens/Adultos oferece faixas kids **sem aviso nenhum** (é normal). Aos 16, alerta e escala adulta.
+- **Corte da escala.** 14 anos em Jovens/Adultos oferece faixas kids **sem aviso nenhum** (é normal). No ano em que faz 16, ainda com 15, as duas escalas e nenhum alerta. Aos 16, alerta e escala adulta.
 - **Turma cheia.** `INSCRICOES` é barrado; admin autoriza e a matrícula grava com o registro da autorização.
 - **Empréstimo duplicado.** Emprestar unidade única que já está na rua. **O banco não barra** — regra de aplicação da fase 8.
 - **Saída maior que o saldo.** Dar baixa de 5 num item que tem 3. **O banco não barra** — regra de aplicação da fase 8. O *check constraint* garante quantidade positiva, não saldo suficiente.

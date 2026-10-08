@@ -10,7 +10,12 @@
 import type { Graduacao, ResponsavelTipo } from "@prisma/client";
 
 import { idadeHoje } from "@/lib/data";
-import { escalaDaGraduacao, escalaPorIdade, ROTULO_ESCALA } from "@/lib/graduacao";
+import {
+  escalaDaGraduacao,
+  escalaPorIdade,
+  escalasPermitidas,
+  ROTULO_ESCALA,
+} from "@/lib/graduacao";
 import { idadeCombinaComTurma, IDADE_JOVENS_ADULTOS, turmaEsperada } from "@/lib/turma";
 
 export const IDADE_MAIORIDADE = 18;
@@ -71,9 +76,11 @@ export function avisosDoAluno(
 
   // Corte dos 16 anos — o da escala de graduação. É outra régua, e um aluno de
   // 12 a 15 anos em Jovens/Adultos com faixa kids não aparece aqui: está certo.
+  // No ano em que faz 16 as duas escalas valem, então o aviso de faixa kids só
+  // chega no aniversário.
   const escalaDaFaixa = escalaDaGraduacao(aluno.graduacao);
   const escalaDaIdade = escalaPorIdade(idade);
-  if (escalaDaFaixa !== escalaDaIdade) {
+  if (!escalasPermitidas(aluno.nascimento, hojeIso).includes(escalaDaFaixa)) {
     avisos.push({
       codigo: "ESCALA",
       texto: `Tem ${idade} anos, que é escala ${ROTULO_ESCALA[escalaDaIdade]}, e está com faixa da escala ${ROTULO_ESCALA[escalaDaFaixa]} — reposicione a graduação.`,

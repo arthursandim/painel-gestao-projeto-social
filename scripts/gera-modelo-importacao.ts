@@ -64,7 +64,7 @@ function abaInstrucoes(livro: ExcelJS.Workbook) {
     ["• Passe o mouse sobre o cabeçalho de uma coluna para ver a observação dela, quando houver.", "texto"],
     ["", "texto"],
     ["Graduação", "secao"],
-    ["• Escolha só a cor. A escala (Kids ou Adulto) é decidida pela data de nascimento: até 15 anos, Kids; a partir de 16, Adulto.", "texto"],
+    ["• Escolha só a cor. A escala (Kids ou Adulto) é decidida pela data de nascimento: até 15 anos, Kids; a partir de 16, Adulto. No ano em que faz 16 valem as duas.", "texto"],
     ["• Um aluno de 12 a 15 anos pode estar na turma Jovens/Adultos com faixa kids. Isso é normal.", "texto"],
     ["• Cor que não existe na escala da idade (ex.: Azul para 10 anos) é recusada na importação, com o motivo.", "texto"],
     ["", "texto"],

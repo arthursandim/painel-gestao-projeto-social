@@ -38,6 +38,7 @@ import {
 import { esquemaAluno, type DadosAluno } from "../../lib/esquemaAluno";
 import {
   escalaDoAluno,
+  escalasPermitidas,
   GRADUACOES_POR_ESCALA,
   ROTULO_ESCALA,
   ROTULO_GRADUACAO,
@@ -300,9 +301,11 @@ function converterGraduacao(
     avisos.push(`Graduação vazia: importada como Branca (escala ${ROTULO_ESCALA[escala]}), grau 0 se o grau também estiver vazio.`);
     return escala === "KIDS" ? Graduacao.KIDS_BRANCA : Graduacao.ADULTO_BRANCA;
   }
-  const achada = GRADUACOES_POR_ESCALA[escala].find(
-    (g) => chaveOpcao(ROTULO_GRADUACAO[g]) === chaveOpcao(cor),
-  );
+  // No ano em que faz 16 valem as duas escalas; a da idade vem primeiro, então
+  // "Branca" continua sendo a kids e "Azul" acha a adulta.
+  const achada = escalasPermitidas(nascimento, ctx.hojeIso)
+    .flatMap((e) => GRADUACOES_POR_ESCALA[e])
+    .find((g) => chaveOpcao(ROTULO_GRADUACAO[g]) === chaveOpcao(cor));
   if (achada) return achada;
 
   const existeNaOutra = Object.values(GRADUACOES_POR_ESCALA)
@@ -311,7 +314,7 @@ function converterGraduacao(
 
   erros.push(
     existeNaOutra
-      ? `Graduação: a faixa ${cor} não existe na escala ${ROTULO_ESCALA[escala]}, que é a desta data de nascimento (${escala === "KIDS" ? "até 15 anos" : "16 anos ou mais"}). Confira a faixa ou o nascimento.`
+      ? `Graduação: a faixa ${cor} não existe na escala ${ROTULO_ESCALA[escala]}, que é a desta data de nascimento (${escala === "KIDS" ? "até 15 anos; a adulta só a partir do ano em que faz 16" : "16 anos ou mais"}). Confira a faixa ou o nascimento.`
       : `Graduação: "${cor}" não é uma das opções da lista.`,
   );
   return null;

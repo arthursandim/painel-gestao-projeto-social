@@ -20,6 +20,7 @@ import {
   GRAU_MINIMO,
   escalaDaGraduacao,
   escalaDoAluno,
+  escalasPermitidas,
   ROTULO_ESCALA,
 } from "@/lib/graduacao";
 import {
@@ -352,8 +353,8 @@ export function conferirEscala(
   graduacaoAnterior?: Graduacao | null,
 ): string | null {
   const escalaDoValor = escalaDaGraduacao(graduacao);
+  if (escalasPermitidas(nascimento).includes(escalaDoValor)) return null;
   const escalaDaIdade = escalaDoAluno(nascimento);
-  if (escalaDoValor === escalaDaIdade) return null;
 
   // Faixa inalterada: é o aluno que atravessou o corte, não uma escolha errada
   // de quem está editando. Passa, e o aviso permanente cuida do resto.

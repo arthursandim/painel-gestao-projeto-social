@@ -17,7 +17,7 @@ import { mascaraCpf, mascaraTelefone, somenteDigitos } from "@/lib/validacoes";
 import {
   DESCRICAO_ESCALA,
   escalaDaGraduacao,
-  escalaPorIdade,
+  escalasPermitidas,
   GRADUACOES_POR_ESCALA,
   GRAU_MAXIMO,
   GRAU_MINIMO,
@@ -224,7 +224,8 @@ export function FormularioAluno({
 
   const nascimentoValido = ehDiaValido(nascimento);
   const idade = nascimentoValido ? idadeEm(nascimento, hojeIso) : null;
-  const escala = idade === null ? null : escalaPorIdade(idade);
+  // Uma escala só, menos no ano em que o aluno faz 16: aí valem as duas.
+  const escalas = nascimentoValido ? escalasPermitidas(nascimento, hojeIso) : null;
 
   /**
    * O corte dos 18 — a terceira régua de idade, e a única que muda a *forma* do
@@ -244,9 +245,9 @@ export function FormularioAluno({
    */
   const faixaHerdada = useMemo(() => {
     const gravada = valores.graduacao as Graduacao | "";
-    if (!gravada || !escala) return null;
-    return escalaDaGraduacao(gravada) === escala ? null : gravada;
-  }, [valores.graduacao, escala]);
+    if (!gravada || !escalas) return null;
+    return escalas.includes(escalaDaGraduacao(gravada)) ? null : gravada;
+  }, [valores.graduacao, escalas]);
 
   /**
    * A turma que a idade indica.
@@ -291,8 +292,9 @@ export function FormularioAluno({
 
     if (!graduacao) return;
 
-    const novaEscala = escalaPorIdade(novaIdade);
-    if (escalaDaGraduacao(graduacao as Graduacao) === novaEscala) {
+    const novasEscalas = escalasPermitidas(novo, hojeIso);
+    const novaEscala = novasEscalas[0];
+    if (novasEscalas.includes(escalaDaGraduacao(graduacao as Graduacao))) {
       setAvisoEscala("");
       return;
     }
@@ -507,7 +509,7 @@ export function FormularioAluno({
       {/* --------------------------------------------- turma e graduação */}
       <Secao
         titulo="Turma e graduação"
-        descricao="São duas réguas diferentes: a turma vira Jovens/Adultos aos 12 anos, e a escala da faixa vira adulta aos 16. Entre 12 e 15 o aluno treina em Jovens/Adultos com faixa kids, e isso é normal."
+        descricao="São duas réguas diferentes: a turma vira Jovens/Adultos aos 12 anos, e a escala da faixa vira adulta aos 16 — no ano em que o aluno faz 16 as duas escalas valem. Entre 12 e 15 o aluno treina em Jovens/Adultos com faixa kids, e isso é normal."
       >
         <Campo
           nome="turmaId"
@@ -558,9 +560,11 @@ export function FormularioAluno({
           nome="graduacao"
           rotulo="Graduação"
           dica={
-            escala
-              ? `A idade define a escala: ${DESCRICAO_ESCALA[escala]}. A outra escala não fica disponível.`
-              : "Informe a data de nascimento para a lista de faixas aparecer."
+            !escalas
+              ? "Informe a data de nascimento para a lista de faixas aparecer."
+              : escalas.length > 1
+                ? "Faz 16 anos este ano: as duas escalas valem. A faixa adulta já pode ser dada, e a kids vale até o aniversário."
+                : `A idade define a escala: ${DESCRICAO_ESCALA[escalas[0]]}. A outra escala não fica disponível.`
           }
         >
           <Select
@@ -571,19 +575,19 @@ export function FormularioAluno({
               setGraduacao(e.target.value);
               setAvisoEscala("");
             }}
-            disabled={!escala}
+            disabled={!escalas}
             required
           >
             <option value="">Escolha…</option>
-            {escala ? (
-              <optgroup label={DESCRICAO_ESCALA[escala]}>
-                {GRADUACOES_POR_ESCALA[escala].map((g) => (
+            {escalas?.map((e) => (
+              <optgroup key={e} label={DESCRICAO_ESCALA[e]}>
+                {GRADUACOES_POR_ESCALA[e].map((g) => (
                   <option key={g} value={g}>
                     {ROTULO_GRADUACAO[g]}
                   </option>
                 ))}
               </optgroup>
-            ) : null}
+            ))}
             {faixaHerdada ? (
               <optgroup
                 label={`Faixa atual — escala ${ROTULO_ESCALA[escalaDaGraduacao(faixaHerdada)]}, a reposicionar`}

@@ -107,7 +107,7 @@ export const COLUNAS: readonly Coluna[] = [
     largura: 15,
     nota:
       "Escolha só a cor. A escala (Kids ou Adulto) sai da data de nascimento: " +
-      "até 15 anos é Kids, a partir de 16 é Adulto.\n" +
+      "até 15 anos é Kids, a partir de 16 é Adulto; no ano em que faz 16 valem as duas.\n" +
       "Cor que não existe na escala da idade é recusada na importação, com o motivo.",
   },
   { campo: "grau", cabecalho: "Grau", tipo: "lista", lista: "grau", obrigatorio: true, largura: 7, nota: "0 a 4." },

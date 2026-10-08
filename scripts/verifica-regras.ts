@@ -64,7 +64,9 @@ import {
 import {
   escalaDaGraduacao,
   escalaPorIdade,
+  escalasPermitidas,
   GRADUACOES_POR_ESCALA,
+  graduacoesDisponiveis,
   ROTULO_GRADUACAO,
 } from "../lib/graduacao";
 import {
@@ -236,6 +238,52 @@ checa(
 checa(
   "…e não inventa aviso de turma junto",
   !dezesseisAnos.some((a) => a.codigo === "TURMA"),
+);
+
+// =====================================================================
+console.log("\nAno em que faz 16 — as duas escalas valem até o aniversário");
+
+// Nasceu em 10/12/2010: em 07/10/2026 tem 15 anos e faz 16 neste ano.
+checa(
+  "15 anos, fazendo 16 no ano: kids e adulta, a da idade primeiro",
+  escalasPermitidas("2010-12-10", "2026-10-07").join() === "KIDS,ADULTO",
+);
+checa(
+  "15 anos, fazendo 16 só no ano seguinte: só kids",
+  escalasPermitidas("2011-01-01", "2026-10-07").join() === "KIDS",
+);
+checa(
+  "no aniversário de 16: só adulta",
+  escalasPermitidas("2010-12-10", "2026-12-10").join() === "ADULTO",
+);
+checa(
+  "no ano de transição, a lista oferece as faixas das duas escalas",
+  graduacoesDisponiveis("2010-12-10", "2026-10-07").length ===
+    GRADUACOES_POR_ESCALA.KIDS.length + GRADUACOES_POR_ESCALA.ADULTO.length,
+);
+for (const graduacao of [Graduacao.KIDS_VERDE, Graduacao.ADULTO_AZUL]) {
+  checa(
+    `ano de transição com ${graduacao} não gera aviso de escala`,
+    !avisosDoAluno(
+      { nascimento: "2010-12-10", graduacao, turma: JOVENS, responsavelTipo: ResponsavelTipo.MAE },
+      "2026-10-07",
+    ).some((a) => a.codigo === "ESCALA"),
+  );
+}
+// Controle: no ano anterior ao da transição, a Azul ainda acende o aviso.
+checa(
+  "faixa adulta em 31/12 do ano anterior gera aviso de escala",
+  avisosDoAluno(
+    { nascimento: "2010-12-10", graduacao: Graduacao.ADULTO_AZUL, turma: JOVENS, responsavelTipo: ResponsavelTipo.MAE },
+    "2025-12-31",
+  ).some((a) => a.codigo === "ESCALA"),
+);
+checa(
+  "o aviso de faixa kids chega no aniversário de 16, não antes",
+  avisosDoAluno(
+    { nascimento: "2010-12-10", graduacao: Graduacao.KIDS_VERDE, turma: JOVENS, responsavelTipo: ResponsavelTipo.MAE },
+    "2026-12-10",
+  ).some((a) => a.codigo === "ESCALA"),
 );
 
 // Véspera dos 16: um dia antes, silêncio.
