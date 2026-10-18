@@ -58,7 +58,9 @@ Entregue na v1 além da lista acima, a pedido do desenvolvedor: foto do aluno e 
 
 ### Fora do escopo — não implementar
 
-Acesso de aluno ou responsável · relatórios e gráficos · notificações (e-mail, SMS, WhatsApp) · histórico de graduação · funcionamento offline · controle financeiro · múltiplas unidades.
+Acesso de aluno ou responsável · relatórios e gráficos · notificações (e-mail, SMS, WhatsApp) · histórico de graduação · funcionamento offline · controle financeiro.
+
+~~Múltiplas unidades~~ — saiu desta lista em 2026-10-18, por decisão do desenvolvedor: o projeto se expandiu em polos. Está **planejado, não implementado** — item 4 do backlog e `docs/polos.md`. Até a execução começar, nenhum código trata de polo.
 
 ---
 
@@ -697,6 +699,27 @@ Atenção ao limite da Vercel: o corpo de uma Server Action vai até 4,5 MB (e `
 #### 2. Marca d'água na visualização de documento
 
 Depende do item 1. Avaliada e adiada na seção "Documentos › Visualizar não é baixar": registrar na imagem quem visualizou e quando. Só se a diretoria sentir necessidade.
+
+#### 3. Aniversariantes
+
+Planejado em 2026-10-18, a pedido do desenvolvedor. **Vem antes dos polos** quando a execução começar. Decisões tomadas:
+
+- **Só alunos ativos.** Desligado não aparece, nem nos meses que já passaram
+- **Calendário mensal** em `/alunos/aniversarios`, no estilo Google Agenda: ← →, botão "Hoje", dia de hoje destacado. Dia passado é o histórico, dia futuro é a previsão. No celular, a grade vira lista por dia — nunca rolagem horizontal
+- **Card no painel:** aniversariantes de hoje e dos próximos 7 dias, com a idade que completam e a turma; tocar leva ao aluno, "Ver calendário" leva à tela
+- **Acesso:** o de `/alunos` (`ADMIN`, `INSCRICOES`, `PROFESSOR`). Nascimento já é visível ao professor, então ninguém passa a ver dado novo. `INVENTARIO` não vê o card
+- **Sem tabela nova:** tudo deriva de `Aluno.nascimento`. Dia e mês calculados no fuso do projeto (`hojeNoProjeto()`), nunca no do servidor
+- **29 de fevereiro:** em ano não bissexto, aparece em 28/02
+- Sem biblioteca de calendário. Aviso dentro do app apenas — não é notificação (fora do escopo)
+- Com polos (item 4), o calendário passa a respeitar o polo como qualquer lista de alunos
+
+Testes: aniversário hoje às 23h e à 0h05 (fuso); 29/02 em 2027; aluno desligado some; virada de ano (dezembro → janeiro) na previsão de 7 dias.
+
+#### 4. Polos
+
+Planejado em 2026-10-18; **só o plano, execução no futuro**. O projeto se expandiu: tudo o que existe vira a **Matriz**, e cada polo tem seus alunos, turmas, lista de espera, inventário e usuários. Plano completo, decisões e desafios em **`docs/polos.md`** — ler inteiro antes de começar.
+
+Decidido: todo usuário que não é `ADMIN` pertence a **um polo** e só enxerga esse polo; **só o `ADMIN` é global**. Matrícula continua em **sequência única global**. **Nenhum dado existente pode ser perdido nem mudar de comportamento**: a migration segue a seção "Proteção dos dados existentes" de `docs/polos.md`, com backup e ensaio antes de tocar no banco de produção.
 
 ### Banco único e limpeza antes da importação
 
