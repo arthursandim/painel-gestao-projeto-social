@@ -96,6 +96,12 @@ enum TipoDocumento {
   OUTROS
 }
 
+// A ficha impressa tem duas variantes, escolhidas pelo nascimento (lib/ficha.ts).
+enum VarianteFicha {
+  MENOR
+  ADULTO
+}
+
 enum StatusListaEspera {
   AGUARDANDO
   CONVERTIDO
@@ -151,7 +157,8 @@ model Usuario {
   alunosAtualizados        Aluno[]            @relation("AlunoAtualizadoPor")
   alunosDesligados         Aluno[]            @relation("AlunoDesligadoPor")
   alunosAutorizados        Aluno[]            @relation("AlunoAutorizadoPor")
-  presencasRegistradas     Presenca[]
+  fichasRecebidas          Aluno[]            @relation("AlunoFichaRecebidaPor")
+  presencasRegistradas    Presenca[]
   documentosEnviados       Documento[]
   esperaCriada             ListaEspera[]      @relation("EsperaCriadoPor")
   esperaConvertida         ListaEspera[]      @relation("EsperaConvertidoPor")
@@ -267,7 +274,16 @@ model Aluno {
   // fora da tabela de documentos, que é a trilha legal auditável.
   fotoPath String?
 
-  status          StatusAluno @default(ATIVO)
+  // Ficha assinada entregue em papel (decisão de 2026-10-22). Marcação, não
+  // arquivo: o envio do PDF fica para o item Documentos do backlog. Guarda QUAL
+  // variante foi entregue, porque aos 18 a de menor deixa de valer e a
+  // pendência volta sozinha — um sim/não continuaria dizendo "entregue".
+  fichaEntregueVariante VarianteFicha?
+  fichaEntregueEm       DateTime?
+  fichaEntreguePorId    String?        @db.Uuid
+  fichaEntreguePor      Usuario?       @relation("AlunoFichaRecebidaPor", fields: [fichaEntreguePorId], references: [id])
+
+  status       StatusAluno @default(ATIVO)
   desligadoEm     DateTime?
   desligadoMotivo String?
   desligadoPorId  String?     @db.Uuid

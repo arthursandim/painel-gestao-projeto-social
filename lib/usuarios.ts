@@ -21,6 +21,7 @@ export const RELACOES_DE_AUTORIA = {
   alunosAtualizados: "alunos editados",
   alunosDesligados: "alunos desligados",
   alunosAutorizados: "matrículas acima da capacidade autorizadas",
+  fichasRecebidas: "fichas assinadas recebidas",
   presencasRegistradas: "presenças lançadas",
   documentosEnviados: "documentos enviados",
   esperaCriada: "entradas na lista de espera",

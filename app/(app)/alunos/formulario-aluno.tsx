@@ -1,6 +1,6 @@
 "use client";
 
-import { Graduacao, Modalidade, ResponsavelTipo, Sexo } from "@prisma/client";
+import { Graduacao, Modalidade, ResponsavelTipo, Sexo, type VarianteFicha } from "@prisma/client";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { useActionState } from "react";
@@ -110,6 +110,7 @@ export function FormularioAluno({
   esperaId,
   hojeIso,
   podeAutorizarCapacidade,
+  fichaGravada = null,
   hrefCancelar,
   rotuloSalvar,
 }: {
@@ -123,6 +124,8 @@ export function FormularioAluno({
    *  hidratação sempre que o navegador estivesse em outro fuso. */
   hojeIso: string;
   podeAutorizarCapacidade: boolean;
+  /** Qual ficha assinada já está registrada como entregue. Null no aluno novo. */
+  fichaGravada?: VarianteFicha | null;
   hrefCancelar: string;
   rotuloSalvar: string;
 }) {
@@ -237,6 +240,16 @@ export function FormularioAluno({
   const menor = idade === null || idade < IDADE_MAIORIDADE;
 
   /**
+   * A checkbox da ficha assinada fala sempre da variante de HOJE, que segue o
+   * nascimento digitado. Guardar a variante marcada, e não um sim/não, faz a
+   * caixa se desmarcar sozinha quando a data cruza os 18: a ficha de menor
+   * entregue não é a de adulto.
+   */
+  const varianteFicha: VarianteFicha = menor ? "MENOR" : "ADULTO";
+  const [fichaMarcada, setFichaMarcada] = useState<VarianteFicha | null>(fichaGravada);
+  const fichaEntregue = fichaMarcada === varianteFicha;
+
+  /**
    * A faixa que já estava gravada e não existe mais na escala de hoje.
    *
    * Fica na lista como um grupo à parte para que uma edição de telefone possa
@@ -333,6 +346,9 @@ export function FormularioAluno({
             responsavelTipo: responsavelTipo || null,
             escola,
             serie,
+            // A caixa desmarcada sobre a ficha de menor de um adulto continua
+            // sendo "a refazer", como no servidor.
+            fichaEntregueVariante: fichaEntregue ? varianteFicha : fichaGravada === varianteFicha ? null : fichaGravada,
           },
           hojeIso,
         )
@@ -958,6 +974,37 @@ export function FormularioAluno({
             className="h-11"
           />
         </Campo>
+      </Secao>
+
+      {/* ----------------------------------------------- ficha assinada */}
+      {/* Marcação, não arquivo: o envio do documento digitalizado fica para o
+          item Documentos do backlog. Até lá, é a única pendência de documento
+          que o app cobra. */}
+      <Secao
+        titulo="Ficha assinada"
+        descricao="A ficha impressa, assinada e devolvida em papel. Enquanto não for marcada, o aluno aparece com pendência no painel."
+      >
+        <div className="md:col-span-2">
+          <label className="hover:bg-muted/50 flex min-h-11 cursor-pointer items-center gap-3 rounded-md p-2">
+            <input
+              type="checkbox"
+              name="fichaEntregue"
+              value={varianteFicha}
+              className="accent-primary size-4"
+              checked={fichaEntregue}
+              onChange={(e) => setFichaMarcada(e.target.checked ? varianteFicha : null)}
+            />
+            <span className="text-sm">
+              Ficha {menor ? "de menor, assinada pelo responsável," : "de adulto, assinada pelo aluno,"} entregue
+            </span>
+          </label>
+          {fichaGravada && fichaGravada !== varianteFicha ? (
+            <p className="text-muted-foreground mt-1 text-xs">
+              A ficha entregue é a de {fichaGravada === "MENOR" ? "menor" : "adulto"}, que não vale
+              para a idade de hoje. Marque quando a nova ficha for assinada.
+            </p>
+          ) : null}
+        </div>
       </Secao>
 
       {/* --------------------------------------------- avisos e envio */}

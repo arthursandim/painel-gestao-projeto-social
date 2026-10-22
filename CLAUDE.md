@@ -77,7 +77,7 @@ Quatro papéis fixos em código, sem tela de permissão granular. **Um usuário 
 
 Usuários são criados **apenas por admin**. Não existe auto-cadastro.
 
-**Excluir usuário** (decidido em 2026-10-04): só o admin, em `/config/usuarios`, e **só quem nunca registrou nada** — conta criada por engano ou de teste depois da limpeza. Sai a linha em `Usuario` e o login no Supabase Auth. Quem tem qualquer registro de autoria só se desativa: as 18 chaves que apontam para `Usuario` são `ON DELETE SET NULL`, e excluir apagaria o autor da trilha em silêncio. Nunca a própria conta nem o último admin ativo. Regras em `lib/usuarios.ts`; `verifica-permissoes` confere contra o schema que toda relação de autoria está na lista.
+**Excluir usuário** (decidido em 2026-10-04): só o admin, em `/config/usuarios`, e **só quem nunca registrou nada** — conta criada por engano ou de teste depois da limpeza. Sai a linha em `Usuario` e o login no Supabase Auth. Quem tem qualquer registro de autoria só se desativa: as 19 chaves que apontam para `Usuario` são `ON DELETE SET NULL`, e excluir apagaria o autor da trilha em silêncio. Nunca a própria conta nem o último admin ativo. Regras em `lib/usuarios.ts`; `verifica-permissoes` confere contra o schema que toda relação de autoria está na lista.
 
 ### Visibilidade por campo (crítico)
 
@@ -240,10 +240,21 @@ Faixas permanentes enquanto a situação persistir. **Informam, nunca agem, e n�
 - Aluno que completou 16 anos com faixa kids → reposicionar na escala adulta
 - Aluno que completou 18 anos com ficha de menor vigente
 - Menor de idade sem responsável legal definido
-- Documento obrigatório faltando
+- Ficha assinada não entregue — ~~documento obrigatório faltando~~ (ver "Ficha assinada entregue", abaixo)
 - ~~Matrícula acima da capacidade, com o nome de quem autorizou~~ — **saiu dos avisos em 2026-10-04** (decisão do desenvolvedor): é fato da turma, não do aluno. A autorização vai para o histórico em `/config/historico` (ver "Lista de espera › Histórico de parâmetros"); as colunas `autorizacaoAcima*` continuam no `Aluno`, mas a tela dele não as mostra
 
 Do painel, o card leva à lista e de lá ao cadastro. **Nunca executa a ação.**
+
+### Ficha assinada entregue
+
+Decidido em 2026-10-22, pelo desenvolvedor: **por enquanto, a ficha assinada é o único documento cobrado**, e a cobrança é uma **marcação no cadastro**, não arquivo. RG e comprovantes deixam de gerar pendência. O envio de arquivos continua no item Documentos do backlog, para o futuro.
+
+- Checkbox "Ficha assinada" no formulário (criação e edição). Fala sempre da **variante de hoje**, pelo nascimento: ficha de menor (assinada pelo responsável) ou de adulto (pelo aluno)
+- O banco guarda **qual variante** foi entregue, quando e quem marcou (`Aluno.fichaEntregueVariante`, `fichaEntregueEm`, `fichaEntreguePorId`), não um sim/não. Aos 18 a ficha de menor deixa de marcar a caixa e o aviso vira "a refazer" sozinho
+- Avisos `FICHA` (variante de hoje não entregue) e `FICHA_MAIORIDADE` (adulto que só entregou a de menor). Cards "Ficha pendente" e "Ficha a refazer" no painel; filtros na lista (`?aviso=FICHA`, `?aviso=FICHA_MAIORIDADE`)
+- Só `ADMIN` e `INSCRICOES` veem e marcam. A coluna está em `CAMPOS_VEDADOS_AO_PROFESSOR`: o professor não recebe nem o aviso nem o card
+- Regra pura em `registroDaFichaEntregue` (`lib/ficha.ts`): salvar de novo não reescreve quem recebeu; desmarcar a variante de hoje limpa; a caixa desmarcada do adulto preserva o registro da ficha de menor
+- **Não** bloqueia nova impressão. O bloqueio de "Ficha impressa › Ficha assinada bloqueia nova impressão" continua dependendo do item Documentos
 
 ### Foto do aluno
 
@@ -516,12 +527,12 @@ Implementado na fase 8, concluída em 2026-10-04: regras puras em `lib/estoque.t
 
 Tela inicial e a mais usada. Cinco alertas, cada card leva à lista correspondente.
 
-Os alertas **Documento pendente** e **Ficha a refazer** não estão na v1: entram com o item Documentos do backlog (ver "Roteiro › Backlog de melhorias"). A v1 tem os outros três.
+Os alertas **Documento pendente** e **Ficha a refazer** não estavam na v1. Desde 2026-10-22, "Documento pendente" é **Ficha pendente**, e os dois saem da marcação de ficha entregue (ver "Cadastro de aluno › Ficha assinada entregue"). Só quem vê dados sensíveis vê os dois cards.
 
 | Alerta | Regra |
 | --- | --- |
 | Risco de evasão | N faltas consecutivas, configurável, default 3 |
-| Documento pendente | Falta algum tipo obrigatório vigente |
+| Ficha pendente | Ficha assinada da variante de hoje não marcada como entregue (era "Documento pendente") |
 | Troca de turma | Aluno Kids completou 12 anos |
 | Troca de escala | Aluno completou 16 anos com faixa kids |
 | Ficha a refazer | Aluno completou 18 anos com ficha de menor |
@@ -679,8 +690,7 @@ Decidido em 2026-10-04, com a v1 entregue. Nenhum item começa por iniciativa pr
 Upload, nomenclatura, hash, versionamento e completude — ver as seções "Documentos" e "Ficha impressa". Vai junto, porque depende do mesmo armazenamento:
 
 - ~~Foto do aluno~~ — já feita na v1 (fase 8), junto com a foto do item. Ver "Inventário › Decisões da fase 8"
-- Os alertas **Documento pendente** e **Ficha a refazer** do painel. A fase 7 entrega os outros três alertas e a ocupação das turmas. Sem a tabela de documentos preenchida, "documento pendente" marcaria todos os alunos.
-- O preenchimento de `temFichaMenorVigente` em `lib/avisosAluno.ts` e o aviso "documento obrigatório faltando" no cadastro
+- ~~Os alertas Documento pendente e Ficha a refazer~~ — feitos em 2026-10-22 pela marcação de ficha entregue (ver "Cadastro de aluno › Ficha assinada entregue"). Quando o arquivo existir, decidir com o desenvolvedor se a marcação passa a ser derivada da ficha vigente na tabela `Documento` e se os outros tipos voltam a ser cobrados
 - O bloqueio de nova impressão depois da ficha assinada, hoje liberada a `INSCRICOES` por `podeImprimirFicha` em `lib/ficha.ts` (ver "Ficha impressa › Ficha assinada bloqueia nova impressão")
 - Visualizar sem baixar: download só para admin (ver "Documentos › Visualizar não é baixar")
 
@@ -688,7 +698,7 @@ Decisões já tomadas para este item. **As de armazenamento são provisórias**,
 
 | Decisão | Valor | Situação |
 | --- | --- | --- |
-| Tipos obrigatórios (completude) | Menor: ficha-menor, rg-aluno, endereco-aluno, rg-responsavel, endereco-responsavel. Adulto: ficha-adulto, rg-aluno, endereco-aluno. `outros` nunca conta. Variante pelo nascimento, como na ficha | Firme |
+| Tipos obrigatórios (completude) | **Desde 2026-10-22, só a ficha assinada**, pela marcação no cadastro. A lista anterior (menor: ficha-menor, rg-aluno, endereco-aluno, rg-responsavel, endereco-responsavel; adulto: ficha-adulto, rg-aluno, endereco-aluno) fica suspensa | Firme — rever quando o envio existir |
 | Buckets | Dois privados: `documentos` e `fotos` | `fotos` **firme** (fase 8); `documentos` provisória |
 | Formatos e tamanho | PDF, JPEG, PNG; até 10 MB | Provisória |
 | Caminho do upload | Direto do navegador com URL assinada de upload; servidor baixa o arquivo armazenado e calcula SHA-256 e tamanho ele mesmo | Provisória |

@@ -335,6 +335,15 @@ export default async function AlunoPage({
               valor={formatarDiaBr(completo.rgDataEmissao)}
             />
             <Dado rotulo="CPF" valor={completo.cpf} />
+            {/* Instante gravado, não dia: o dia sai no fuso do projeto. */}
+            <Dado
+              rotulo="Ficha assinada"
+              valor={
+                completo.fichaEntregueVariante
+                  ? `${completo.fichaEntregueVariante === "MENOR" ? "De menor" : "De adulto"}, entregue${completo.fichaEntregueEm ? ` em ${formatarDiaBr(hojeNoProjeto(completo.fichaEntregueEm))}` : ""}${completo.fichaEntreguePor ? ` — marcada por ${completo.fichaEntreguePor.nome}` : ""}`
+                  : "Não entregue"
+              }
+            />
           </Bloco>
 
           <Bloco titulo="Escola">

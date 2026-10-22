@@ -7,7 +7,7 @@
 // Puro e isomórfico de propósito: a mesma função roda no servidor, para a lista
 // e a ficha do aluno, e no navegador, para o formulário reagir enquanto a
 // pessoa digita a data de nascimento. Duas implementações divergiriam.
-import type { Graduacao, ResponsavelTipo } from "@prisma/client";
+import type { Graduacao, ResponsavelTipo, VarianteFicha } from "@prisma/client";
 
 import { idadeHoje } from "@/lib/data";
 import {
@@ -25,6 +25,7 @@ export type CodigoAviso =
   | "ESCALA"
   | "RESPONSAVEL"
   | "ESCOLA"
+  | "FICHA"
   | "FICHA_MAIORIDADE";
 
 export type Aviso = {
@@ -48,12 +49,11 @@ export type AlunoParaAviso = {
   escola?: string | null;
   serie?: string | null;
   /**
-   * Preenchido a partir da tabela Documento, que só ganha tela na fase 5. Até
-   * lá ninguém passa este campo e o aviso de maioridade não aparece — o que é
-   * a resposta honesta: sem a lista de documentos, o app não sabe qual ficha
-   * está arquivada, e um aviso em todo aluno adulto seria ruído permanente.
+   * Qual ficha assinada foi entregue — a marcação do cadastro (lib/ficha.ts).
+   * `undefined` é "não veio na consulta", como em `escola`: a visão do
+   * professor não traz a coluna, e ele não recebe aviso de ficha.
    */
-  temFichaMenorVigente?: boolean;
+  fichaEntregueVariante?: VarianteFicha | null;
 };
 
 export function avisosDoAluno(
@@ -112,12 +112,24 @@ export function avisosDoAluno(
     });
   }
 
-  if (!menor && aluno.temFichaMenorVigente) {
-    avisos.push({
-      codigo: "FICHA_MAIORIDADE",
-      texto:
-        "Completou 18 anos e a ficha de menor ainda é a vigente. A ficha a assinar passa a ser a de adulto.",
-    });
+  // A ficha assinada é o único documento cobrado por enquanto (decisão de
+  // 2026-10-22). A variante sai do mesmo corte dos 18 que escolhe a ficha
+  // impressa; a de menor entregue não vale para o aluno que já é adulto.
+  const variante: VarianteFicha = menor ? "MENOR" : "ADULTO";
+  const entregue = aluno.fichaEntregueVariante;
+  if (entregue !== undefined && entregue !== variante) {
+    avisos.push(
+      !menor && entregue === "MENOR"
+        ? {
+            codigo: "FICHA_MAIORIDADE",
+            texto:
+              "Completou 18 anos e a ficha entregue é a de menor. A ficha a assinar passa a ser a de adulto.",
+          }
+        : {
+            codigo: "FICHA",
+            texto: `Ficha assinada não entregue (${menor ? "ficha de menor, assinada pelo responsável" : "ficha de adulto, assinada pelo aluno"}). Imprima, colete a assinatura e marque a entrega no cadastro.`,
+          },
+    );
   }
 
   // Matrícula acima da capacidade NÃO é aviso do cadastro (decisão de

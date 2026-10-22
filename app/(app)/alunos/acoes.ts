@@ -15,6 +15,12 @@ import {
   esquemaStatusAluno,
   type DadosAluno,
 } from "@/lib/esquemaAluno";
+import {
+  registroDaFichaEntregue,
+  SEM_FICHA_ENTREGUE,
+  varianteDaFicha,
+  type FichaEntregue,
+} from "@/lib/ficha";
 import { caminhoFotoAluno } from "@/lib/fotos";
 import { eventoMatriculaAcima } from "@/lib/historico";
 import { campoDuplicado, proximaMatricula } from "@/lib/matricula";
@@ -66,6 +72,23 @@ function paraBanco(dados: DadosAluno, maiorDeIdade: boolean) {
     responsavelNome: undefined,
     responsavelParentesco: undefined,
   };
+}
+
+/**
+ * A checkbox da ficha assinada. O formulário manda a variante que a caixa
+ * representava na tela; só vale se for a variante do nascimento que está sendo
+ * gravado. Data corrigida depois de marcar não transforma a ficha de menor
+ * entregue em ficha de adulto.
+ */
+function fichaDoForm(
+  form: FormData,
+  nascimentoIso: string,
+  atual: FichaEntregue,
+  autorId: string,
+): FichaEntregue {
+  const variante = varianteDaFicha(nascimentoIso, hojeNoProjeto());
+  const marcada = form.get("fichaEntregue") === variante;
+  return registroDaFichaEntregue(atual, marcada, variante, autorId, new Date());
 }
 
 /** O corte dos 18, que decide a forma do formulário e o que a ação grava. */
@@ -294,6 +317,7 @@ export async function criarAluno(
           data: {
             ...paraBanco(dados, ehMaiorDeIdade(dados.nascimento)),
             ...capacidade.autorizacao,
+            ...fichaDoForm(form, dados.nascimento, SEM_FICHA_ENTREGUE, autor.id),
             matricula: await proximaMatricula(tx),
             criadoPorId: autor.id,
             atualizadoPorId: autor.id,
@@ -377,6 +401,9 @@ export async function atualizarAluno(
       autorizacaoAcimaPorId: true,
       autorizacaoAcimaEm: true,
       autorizacaoAcimaJustificativa: true,
+      fichaEntregueVariante: true,
+      fichaEntregueEm: true,
+      fichaEntreguePorId: true,
     },
   });
   if (!atual) return { erro: "Aluno não encontrado." };
@@ -441,6 +468,18 @@ export async function atualizarAluno(
         data: {
           ...paraBanco(dados, ehMaiorDeIdade(dados.nascimento)),
           ...autorizacao,
+          // Só as três colunas: `atual` traz turma e graduação, que aqui
+          // sobrescreveriam o que o formulário mandou.
+          ...fichaDoForm(
+            form,
+            dados.nascimento,
+            {
+              fichaEntregueVariante: atual.fichaEntregueVariante,
+              fichaEntregueEm: atual.fichaEntregueEm,
+              fichaEntreguePorId: atual.fichaEntreguePorId,
+            },
+            autor.id,
+          ),
           atualizadoPorId: autor.id,
         },
       }),

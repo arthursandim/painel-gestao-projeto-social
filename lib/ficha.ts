@@ -10,7 +10,7 @@
 // Um aluno de 16 anos usa faixa adulta e assina ficha de MENOR. Um de 12 treina
 // em Jovens/Adultos, usa faixa kids e assina ficha de menor. As três situações
 // são normais e nenhuma é inconsistência.
-import { Papel, TipoDocumento } from "@prisma/client";
+import { Papel, TipoDocumento, type VarianteFicha as PrismaVarianteFicha } from "@prisma/client";
 
 import { IDADE_MAIORIDADE } from "@/lib/avisosAluno";
 import { idadeHoje } from "@/lib/data";
@@ -34,7 +34,9 @@ import { podeVerDadosSensiveis } from "@/lib/selecaoAluno";
  */
 export const VERSAO_FICHA = "v1";
 
-export type VarianteFicha = "MENOR" | "ADULTO";
+// O enum do banco, para a marcação de ficha entregue gravar a mesma coisa que
+// o gerador escolhe.
+export type VarianteFicha = PrismaVarianteFicha;
 
 /**
  * A variante sai da data de nascimento e de mais nada. Não existe escolha
@@ -79,4 +81,51 @@ export const QUEM_ASSINA: Record<VarianteFicha, string> = {
  */
 export function podeImprimirFicha(papeis: readonly Papel[]): boolean {
   return podeVerDadosSensiveis(papeis);
+}
+
+// ---------------------------------------------------------------------------
+// Ficha assinada entregue (decidida pelo desenvolvedor em 2026-10-22)
+//
+// Uma checkbox no cadastro, até o envio do arquivo existir (item Documentos do
+// backlog). Por baixo, o banco guarda QUAL variante foi entregue: a checkbox
+// fala sempre da variante de hoje, e aos 18 a ficha de menor entregue deixa de
+// marcar a caixa sem que ninguém precise desmarcá-la.
+
+export type FichaEntregue = {
+  fichaEntregueVariante: VarianteFicha | null;
+  fichaEntregueEm: Date | null;
+  fichaEntreguePorId: string | null;
+};
+
+export const SEM_FICHA_ENTREGUE: FichaEntregue = {
+  fichaEntregueVariante: null,
+  fichaEntregueEm: null,
+  fichaEntreguePorId: null,
+};
+
+/**
+ * O que gravar a partir da checkbox.
+ *
+ * - Marcada e já era a variante de hoje: nada muda. Salvar o telefone não
+ *   reescreve quem recebeu a ficha nem quando.
+ * - Marcada agora: grava a variante de hoje, com autor e data.
+ * - Desmarcada sobre a variante de hoje: limpa — foi marcada por engano.
+ * - Desmarcada sobre a variante antiga (a de menor, num aluno que fez 18): a
+ *   caixa já aparecia desmarcada, e a ficha de menor continua registrada. É
+ *   ela que faz o aviso dizer "ficha a refazer" em vez de "não entregue".
+ */
+export function registroDaFichaEntregue(
+  atual: FichaEntregue,
+  marcada: boolean,
+  variante: VarianteFicha,
+  autorId: string,
+  agora: Date,
+): FichaEntregue {
+  const ehDeHoje = atual.fichaEntregueVariante === variante;
+  if (marcada) {
+    return ehDeHoje
+      ? atual
+      : { fichaEntregueVariante: variante, fichaEntregueEm: agora, fichaEntreguePorId: autorId };
+  }
+  return ehDeHoje ? SEM_FICHA_ENTREGUE : atual;
 }

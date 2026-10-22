@@ -112,6 +112,7 @@ export default async function EditarAlunoPage({
         valores={valores}
         hojeIso={hojeNoProjeto()}
         podeAutorizarCapacidade={ehAdmin(usuario.papeis)}
+        fichaGravada={aluno.fichaEntregueVariante}
         hrefCancelar={`/alunos/${aluno.id}`}
         rotuloSalvar="Salvar alterações"
       />

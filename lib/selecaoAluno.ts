@@ -80,6 +80,11 @@ const SELECAO_COMPLETA = {
   escola: true,
   serie: true,
 
+  // Ficha assinada entregue: pendência de inscrições, como os documentos.
+  fichaEntregueVariante: true,
+  fichaEntregueEm: true,
+  fichaEntreguePor: { select: { nome: true } },
+
   desligadoEm: true,
   desligadoMotivo: true,
   desligadoPorId: true,
@@ -132,6 +137,9 @@ export const CAMPOS_VEDADOS_AO_PROFESSOR = [
   "escola",
   "serie",
   "documentos",
+  "fichaEntregueVariante",
+  "fichaEntregueEm",
+  "fichaEntreguePor",
 
   "naturalidade",
   "responsavelTipo",

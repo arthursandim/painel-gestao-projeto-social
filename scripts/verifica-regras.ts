@@ -57,6 +57,8 @@ import {
   TAMANHO_MAXIMO_BYTES,
 } from "../lib/fotos";
 import {
+  registroDaFichaEntregue,
+  SEM_FICHA_ENTREGUE,
   TIPO_DOCUMENTO_DA_VARIANTE,
   varianteDaFicha,
   VERSAO_FICHA,
@@ -470,27 +472,52 @@ checa(
   ).some((a) => a.codigo === "ESCOLA"),
 );
 
-// Ficha de menor aos 18 só acende quando a fase 5 souber dizer qual ficha está
-// vigente. Sem isso, todo aluno adulto carregaria um aviso permanente.
-checa(
-  "sem dado de documento, maioridade não gera aviso de ficha",
-  !adultoSemNada.some((a) => a.codigo === "FICHA_MAIORIDADE"),
-);
-checa(
-  "com ficha de menor vigente, o aviso acende",
+// Ficha assinada (decisão de 2026-10-22): a marcação guarda a variante, e o
+// aviso compara com a variante de hoje — o mesmo corte dos 18 da ficha.
+const comFicha = (nascimento: string, fichaEntregueVariante: "MENOR" | "ADULTO" | null) =>
   avisosDoAluno(
-    {
-      nascimento: "2000-01-01",
-      graduacao: Graduacao.ADULTO_AZUL,
-      turma: JOVENS,
-      responsavelTipo: null,
-      escola: null,
-      serie: null,
-      temFichaMenorVigente: true,
-    },
+    { nascimento, graduacao: Graduacao.ADULTO_AZUL, turma: JOVENS, fichaEntregueVariante },
     "2026-09-19",
-  ).some((a) => a.codigo === "FICHA_MAIORIDADE"),
+  ).map((a) => a.codigo);
+checa(
+  "visão sem a coluna (professor) não inventa pendência de ficha",
+  !adultoSemNada.some((a) => a.codigo === "FICHA" || a.codigo === "FICHA_MAIORIDADE"),
 );
+checa("menor sem ficha entregue: pendente", comFicha("2010-01-01", null).includes("FICHA"));
+checa("menor com ficha de menor: em dia", !comFicha("2010-01-01", "MENOR").some((c) => c.startsWith("FICHA")));
+checa("adulto sem ficha entregue: pendente", comFicha("2000-01-01", null).includes("FICHA"));
+checa("adulto com ficha de adulto: em dia", !comFicha("2000-01-01", "ADULTO").some((c) => c.startsWith("FICHA")));
+checa(
+  "adulto com só a ficha de menor: a refazer, não pendente",
+  comFicha("2000-01-01", "MENOR").includes("FICHA_MAIORIDADE") && !comFicha("2000-01-01", "MENOR").includes("FICHA"),
+);
+checa(
+  "17a11m29d com ficha de menor: ainda em dia",
+  !comFicha("2008-09-20", "MENOR").some((c) => c.startsWith("FICHA")),
+);
+checa("no dia dos 18, a ficha de menor vira a refazer", comFicha("2008-09-19", "MENOR").includes("FICHA_MAIORIDADE"));
+
+// A checkbox: marcar grava, salvar de novo não reescreve, desmarcar a de hoje
+// limpa, e a ficha de menor sobrevive à caixa desmarcada do adulto.
+const AGORA = new Date("2026-10-22T15:00:00Z");
+const ANTES = new Date("2026-01-10T15:00:00Z");
+const deMenor = { fichaEntregueVariante: "MENOR" as const, fichaEntregueEm: ANTES, fichaEntreguePorId: "u1" };
+const marcadaAgora = registroDaFichaEntregue(SEM_FICHA_ENTREGUE, true, "MENOR", "u2", AGORA);
+checa(
+  "marcar grava variante, data e autor",
+  marcadaAgora.fichaEntregueVariante === "MENOR" && marcadaAgora.fichaEntregueEm === AGORA && marcadaAgora.fichaEntreguePorId === "u2",
+);
+checa("salvar de novo marcada não reescreve quem recebeu", registroDaFichaEntregue(deMenor, true, "MENOR", "u2", AGORA) === deMenor);
+checa(
+  "desmarcar a variante de hoje limpa",
+  registroDaFichaEntregue(deMenor, false, "MENOR", "u2", AGORA).fichaEntregueVariante === null,
+);
+checa("caixa desmarcada do adulto preserva a ficha de menor", registroDaFichaEntregue(deMenor, false, "ADULTO", "u2", AGORA) === deMenor);
+checa(
+  "marcar a de adulto substitui a de menor",
+  registroDaFichaEntregue(deMenor, true, "ADULTO", "u2", AGORA).fichaEntregueVariante === "ADULTO",
+);
+checa("nunca marcada e desmarcada: nada muda", registroDaFichaEntregue(SEM_FICHA_ENTREGUE, false, "MENOR", "u2", AGORA) === SEM_FICHA_ENTREGUE);
 
 // Acima da capacidade é fato da turma (decisão de 2026-10-04): vai para o
 // histórico em /config/historico, não para os avisos do cadastro. O registro

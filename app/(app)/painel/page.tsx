@@ -1,5 +1,5 @@
 import { StatusAluno, StatusEmprestimo } from "@prisma/client";
-import { ArrowRight, CalendarX, HandHelping, History, RefreshCw, Shirt } from "lucide-react";
+import { ArrowRight, CalendarX, FileClock, FileSignature, HandHelping, History, RefreshCw, Shirt } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -17,14 +17,15 @@ import { ocupacaoDasTurmas } from "@/lib/ocupacao";
 import { podeAcessar } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
 import { resumoDasChamadas } from "@/lib/resumoChamadas";
-import { selectAlunoPara } from "@/lib/selecaoAluno";
+import { podeVerDadosSensiveis, selectAlunoPara } from "@/lib/selecaoAluno";
 import { cn } from "cn";
 
 export const metadata: Metadata = { title: "Painel de pendências — Engenho Cidadão" };
 
 /**
- * Os três alertas desta fase, contados sobre os alunos ATIVOS. "Documento
- * pendente" e "Ficha a refazer" chegam com a fase 5.
+ * Os alertas, contados sobre os alunos ATIVOS. "Documento pendente" virou
+ * "Ficha pendente" (decisão de 2026-10-22): até o envio de arquivos existir, a
+ * ficha assinada é o único documento cobrado, pela marcação do cadastro.
  *
  * Troca de turma e troca de escala são os avisos TURMA e ESCALA do cadastro —
  * a mesma função, não um segundo cálculo dos cortes de 12 e 16 anos.
@@ -41,19 +42,32 @@ async function contarAlertas(papeis: Parameters<typeof selectAlunoPara>[0], hoje
     lerLimiarFaltas(),
   ]);
 
-  const porCodigo: Record<Extract<CodigoAviso, "TURMA" | "ESCALA">, number> = {
+  const contados = ["TURMA", "ESCALA", "FICHA", "FICHA_MAIORIDADE"] as const;
+  const porCodigo: Record<(typeof contados)[number], number> = {
     TURMA: 0,
     ESCALA: 0,
+    FICHA: 0,
+    FICHA_MAIORIDADE: 0,
   };
   let risco = 0;
   for (const a of ativos) {
     if (emRiscoDeEvasao(frequencia.get(a.id)?.faltas ?? 0, limiar)) risco++;
     for (const aviso of avisosDoAluno({ ...a, nascimento: dataParaDia(a.nascimento) }, hoje)) {
-      if (aviso.codigo === "TURMA" || aviso.codigo === "ESCALA") porCodigo[aviso.codigo]++;
+      if ((contados as readonly CodigoAviso[]).includes(aviso.codigo)) {
+        porCodigo[aviso.codigo as (typeof contados)[number]]++;
+      }
     }
   }
 
-  return { risco, limiar, turma: porCodigo.TURMA, escala: porCodigo.ESCALA };
+  return {
+    risco,
+    limiar,
+    turma: porCodigo.TURMA,
+    escala: porCodigo.ESCALA,
+    // Null para quem não vê a coluna (professor): card de zero eterno não é card.
+    ficha: podeVerDadosSensiveis(papeis) ? porCodigo.FICHA : null,
+    fichaRefazer: podeVerDadosSensiveis(papeis) ? porCodigo.FICHA_MAIORIDADE : null,
+  };
 }
 
 function CardAlerta({
@@ -160,6 +174,24 @@ export default async function PainelPage() {
             quantidade={alertas.escala}
             icone={Shirt}
           />
+          {alertas.ficha !== null ? (
+            <CardAlerta
+              href="/alunos?aviso=FICHA"
+              titulo="Ficha pendente"
+              regra="Ficha assinada da idade de hoje não entregue."
+              quantidade={alertas.ficha}
+              icone={FileSignature}
+            />
+          ) : null}
+          {alertas.fichaRefazer !== null ? (
+            <CardAlerta
+              href="/alunos?aviso=FICHA_MAIORIDADE"
+              titulo="Ficha a refazer"
+              regra="Completou 18 anos e só entregou a ficha de menor."
+              quantidade={alertas.fichaRefazer}
+              icone={FileClock}
+            />
+          ) : null}
         </div>
       ) : null}
 
