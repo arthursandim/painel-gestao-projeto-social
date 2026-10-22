@@ -74,11 +74,9 @@ export default async function NovoAlunoPage({ searchParams }: PageProps<"/alunos
       nome: convertendo.nome,
       nascimento,
       turmaId: convertendo.turmaPretendidaId ?? "",
-      // O telefone da fila é de contato: do responsável para criança, do
-      // próprio aluno para adulto.
-      ...(adulto
-        ? { telefoneAluno: convertendo.telefone ?? "" }
-        : { telefoneResponsavel: convertendo.telefone ?? "" }),
+      // O telefone da fila é de contato: do responsável para criança, e o
+      // "Telefone de contato" do adulto — a mesma coluna nos dois casos.
+      telefoneResponsavel: convertendo.telefone ?? "",
     };
   }
 

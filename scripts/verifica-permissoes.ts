@@ -254,9 +254,16 @@ const adultoProjetado = alunoParaEmprestimo(
   { ...registroBase, nascimento: new Date("2000-01-01T00:00:00.000Z") },
   HOJE_PERM,
 );
-checa("adulto: telefone do próprio aluno", adultoProjetado.contato.telefone === "(48) 99999-0002");
+// Do adulto, o contato é a coluna telefoneResponsavel ("Telefone de contato" na
+// tela, decisão de 2026-10-22); o do aluno só cobre cadastro antigo sem ela.
+checa("adulto: telefone de contato", adultoProjetado.contato.telefone === "(48) 99999-0001");
 checa("adulto: sem nome de responsável", adultoProjetado.contato.nome === null);
-checa("adulto: não leva o telefone do responsável", !JSON.stringify(adultoProjetado).includes("99999-0001"));
+checa("adulto: um telefone só", !JSON.stringify(adultoProjetado).includes("99999-0002"));
+const adultoAntigo = alunoParaEmprestimo(
+  { ...registroBase, nascimento: new Date("2000-01-01T00:00:00.000Z"), telefoneResponsavel: null },
+  HOJE_PERM,
+);
+checa("adulto sem telefone de contato: cai no do aluno", adultoAntigo.contato.telefone === "(48) 99999-0002");
 
 // Corte dos 18 no dia do aniversário, como na ficha.
 const vespera = alunoParaEmprestimo({ ...registroBase, nascimento: new Date("2008-10-05T00:00:00.000Z") }, HOJE_PERM);

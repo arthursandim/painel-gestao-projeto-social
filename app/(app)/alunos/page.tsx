@@ -50,6 +50,7 @@ const FILTROS_STATUS = [
 const FILTROS_AVISO = [
   { valor: "TURMA", rotulo: "Troca de turma" },
   { valor: "ESCALA", rotulo: "Troca de escala" },
+  { valor: "CADASTRO", rotulo: "Cadastro incompleto", sensivel: true },
   { valor: "FICHA", rotulo: "Ficha pendente", sensivel: true },
   { valor: "FICHA_MAIORIDADE", rotulo: "Ficha a refazer", sensivel: true },
 ] as const satisfies readonly { valor: CodigoAviso; rotulo: string; sensivel?: boolean }[];
@@ -68,8 +69,8 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
   // Risco de evasão e os avisos do painel são sobre quem ocupa vaga: com um
   // desses filtros ligado, só ativos.
   const risco = filtros.risco === "1";
-  // Ficha assinada é pendência de inscrições: a visão do professor não traz a
-  // coluna, e o filtro mostraria sempre zero.
+  // Ficha e cadastro incompleto são pendências de inscrições: a visão do
+  // professor não traz as colunas, e o filtro mostraria sempre zero.
   const filtrosAviso = FILTROS_AVISO.filter(
     (f) => !("sensivel" in f) || podeVerDadosSensiveis(usuario.papeis),
   );
@@ -305,7 +306,9 @@ export default async function AlunosPage({ searchParams }: PageProps<"/alunos">)
           ? " Ativos cuja idade não combina com a turma (corte dos 12 anos). Quem resolve é o campo Turma, no cadastro."
           : aviso === "ESCALA"
             ? " Ativos com 16 anos ou mais ainda com faixa da escala kids. Quem resolve é o campo Graduação, no cadastro."
-            : aviso === "FICHA"
+            : aviso === "CADASTRO"
+              ? " Ativos com RG, CPF ou telefone em branco; do menor, também escola, série ou responsável legal. O aviso no cadastro diz o que falta."
+              : aviso === "FICHA"
               ? " Ativos sem a ficha assinada da idade de hoje entregue. Quem resolve é a marcação Ficha assinada, no cadastro."
               : aviso === "FICHA_MAIORIDADE"
                 ? " Ativos que fizeram 18 anos e só entregaram a ficha de menor. A ficha a assinar é a de adulto."

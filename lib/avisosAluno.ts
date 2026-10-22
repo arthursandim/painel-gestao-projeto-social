@@ -23,8 +23,7 @@ export const IDADE_MAIORIDADE = 18;
 export type CodigoAviso =
   | "TURMA"
   | "ESCALA"
-  | "RESPONSAVEL"
-  | "ESCOLA"
+  | "CADASTRO"
   | "FICHA"
   | "FICHA_MAIORIDADE";
 
@@ -48,6 +47,10 @@ export type AlunoParaAviso = {
   responsavelTipo?: ResponsavelTipo | null;
   escola?: string | null;
   serie?: string | null;
+  rg?: string | null;
+  cpf?: string | null;
+  telefoneResponsavel?: string | null;
+  telefoneAluno?: string | null;
   /**
    * Qual ficha assinada foi entregue — a marcação do cadastro (lib/ficha.ts).
    * `undefined` é "não veio na consulta", como em `escola`: a visão do
@@ -88,27 +91,15 @@ export function avisosDoAluno(
   }
 
   // Daqui para baixo, o corte dos 18 — a régua da maioridade, que não tem nada
-  // a ver com as duas de cima. Para o aluno adulto estes campos não são
-  // cobrados: ele assina a própria ficha e responde por si.
+  // a ver com as duas de cima. Ela decide o que o cadastro cobra e qual ficha
+  // vale.
   const menor = idade < IDADE_MAIORIDADE;
 
-  if (menor && aluno.responsavelTipo !== undefined && !aluno.responsavelTipo) {
+  const pendencias = pendenciasDoCadastro(aluno, hojeIso);
+  if (pendencias.length > 0) {
     avisos.push({
-      codigo: "RESPONSAVEL",
-      texto:
-        "Menor de idade sem responsável legal definido. A ficha impressa precisa da assinatura de um responsável.",
-    });
-  }
-
-  // `escola !== undefined` distingue "está em branco" de "não veio na consulta":
-  // a visão reduzida do professor não traz escola nem série, e inventar a
-  // pendência com base num campo que ninguém leu seria mentir.
-  if (menor && aluno.escola !== undefined && (!aluno.escola || !aluno.serie)) {
-    avisos.push({
-      codigo: "ESCOLA",
-      texto: !aluno.escola
-        ? "Menor de idade sem escola informada."
-        : "Menor de idade sem a série informada.",
+      codigo: "CADASTRO",
+      texto: `Cadastro incompleto — falta ${juntarComE(pendencias)}. O cadastro vale assim mesmo; o aviso fica até o campo ser preenchido.`,
     });
   }
 
@@ -137,6 +128,43 @@ export function avisosDoAluno(
   // (/config/historico), não na tela do aluno.
 
   return avisos;
+}
+
+/**
+ * O que o cadastro cobra (decisão de 2026-10-22). Nenhum é obrigatório para
+ * cadastrar — formulário rígido produz cadastro não feito ou dado inventado —,
+ * mas todos acusam pendência enquanto estiverem em branco:
+ *
+ * - RG e CPF, de todos;
+ * - menor: escola, série, responsável legal e telefone do responsável;
+ * - adulto: telefone de contato (a coluna telefoneResponsavel, que é o que a
+ *   ficha imprime). O campo "telefone do aluno" não aparece para o adulto.
+ *
+ * Campo `undefined` é "não veio na consulta": a visão do professor não traz
+ * nenhum destes, e pendência de campo que ninguém leu seria inventada.
+ */
+export function pendenciasDoCadastro(aluno: AlunoParaAviso, hojeIso?: string): string[] {
+  const menor = idadeHoje(aluno.nascimento, hojeIso) < IDADE_MAIORIDADE;
+  const cobrados: [string, string | null | undefined][] = [
+    ["RG", aluno.rg],
+    ["CPF", aluno.cpf],
+    ...(menor
+      ? ([
+          ["telefone do responsável", aluno.telefoneResponsavel],
+          ["responsável legal", aluno.responsavelTipo],
+          ["escola", aluno.escola],
+          ["série", aluno.serie],
+        ] as [string, string | null | undefined][])
+      : ([["telefone de contato", aluno.telefoneResponsavel]] as [string, string | null | undefined][])),
+  ];
+  return cobrados
+    .filter(([, valor]) => valor !== undefined && !valor?.trim())
+    .map(([rotulo]) => rotulo);
+}
+
+/** "RG, CPF e escola". */
+function juntarComE(itens: readonly string[]): string {
+  return itens.length < 2 ? itens.join("") : `${itens.slice(0, -1).join(", ")} e ${itens.at(-1)}`;
 }
 
 /** A turma que a idade indica — usada só para redigir o aviso, nunca para agir. */

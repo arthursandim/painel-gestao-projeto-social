@@ -71,6 +71,8 @@ function paraBanco(dados: DadosAluno, maiorDeIdade: boolean) {
     responsavelTipo: undefined,
     responsavelNome: undefined,
     responsavelParentesco: undefined,
+    // O adulto não tem mais o campo na tela: o contato é o telefoneResponsavel.
+    telefoneAluno: undefined,
   };
 }
 

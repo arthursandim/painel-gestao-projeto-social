@@ -169,6 +169,8 @@ export function FormularioAluno({
   );
   const [telefoneAluno, setTelefoneAluno] = useState(valores.telefoneAluno);
   const [cpf, setCpf] = useState(valores.cpf);
+  // Controlado só para o aviso de cadastro incompleto reagir enquanto digita.
+  const [rg, setRg] = useState(valores.rg);
 
   // Controlados porque alimentam a pendência de escola, que precisa aparecer e
   // sumir enquanto a pessoa digita.
@@ -346,6 +348,10 @@ export function FormularioAluno({
             responsavelTipo: responsavelTipo || null,
             escola,
             serie,
+            rg,
+            cpf,
+            telefoneResponsavel,
+            telefoneAluno,
             // A caixa desmarcada sobre a ficha de menor de um adulto continua
             // sendo "a refazer", como no servidor.
             fichaEntregueVariante: fichaEntregue ? varianteFicha : fichaGravada === varianteFicha ? null : fichaGravada,
@@ -768,22 +774,27 @@ export function FormularioAluno({
           />
         </Campo>
 
-        <Campo
-          nome="telefoneAluno"
-          rotulo="Telefone do aluno"
-          dica="Só no digital — não vai na ficha impressa."
-        >
-          <Input
-            id="telefoneAluno"
-            name="telefoneAluno"
-            type="tel"
-            inputMode="tel"
-            value={telefoneAluno}
-            onChange={(e) => setTelefoneAluno(mascaraTelefone(e.target.value))}
-            placeholder="(96) 99123-4567"
-            className="h-11"
-          />
-        </Campo>
+        {/* Do adulto, um telefone só: o de contato, que vai na ficha impressa
+            (decisão de 2026-10-22). O campo some e a ação preserva o que
+            estiver gravado nele, como faz com o responsável legal. */}
+        {menor ? (
+          <Campo
+            nome="telefoneAluno"
+            rotulo="Telefone do aluno"
+            dica="Só no digital — não vai na ficha impressa."
+          >
+            <Input
+              id="telefoneAluno"
+              name="telefoneAluno"
+              type="tel"
+              inputMode="tel"
+              value={telefoneAluno}
+              onChange={(e) => setTelefoneAluno(mascaraTelefone(e.target.value))}
+              placeholder="(96) 99123-4567"
+              className="h-11"
+            />
+          </Campo>
+        ) : null}
 
         <Campo
           nome="email"
@@ -896,10 +907,16 @@ export function FormularioAluno({
       {/* ---------------------------------------------------- documentos */}
       <Secao
         titulo="Documentos pessoais"
-        descricao="Opcionais de propósito: boa parte das crianças chega sem documento em mãos, e formulário rígido produz cadastro não feito ou dado inventado."
+        descricao="Não impedem o cadastro: boa parte das crianças chega sem documento em mãos. RG e CPF em branco deixam o aluno com pendência até serem preenchidos."
       >
         <Campo nome="rg" rotulo="RG">
-          <Input id="rg" name="rg" defaultValue={valores.rg} className="h-11" />
+          <Input
+            id="rg"
+            name="rg"
+            value={rg}
+            onChange={(e) => setRg(e.target.value)}
+            className="h-11"
+          />
         </Campo>
         <Campo nome="rgOrgaoEmissor" rotulo="Órgão emissor">
           <Input
@@ -952,7 +969,7 @@ export function FormularioAluno({
         titulo="Escola"
         descricao={
           menor
-            ? "Esperados para menor de 18 anos. Em branco não impedem o cadastro, mas o aluno fica com pendência no painel."
+            ? "Cobrados do menor de 18 anos. Em branco não impedem o cadastro, mas o aluno fica com pendência até serem preenchidos."
             : "Opcional para maior de idade."
         }
       >

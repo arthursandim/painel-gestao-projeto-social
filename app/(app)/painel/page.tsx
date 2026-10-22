@@ -1,5 +1,5 @@
 import { StatusAluno, StatusEmprestimo } from "@prisma/client";
-import { ArrowRight, CalendarX, FileClock, FileSignature, HandHelping, History, RefreshCw, Shirt } from "lucide-react";
+import { ArrowRight, CalendarX, ClipboardList, FileClock, FileSignature, HandHelping, History, RefreshCw, Shirt } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -42,10 +42,11 @@ async function contarAlertas(papeis: Parameters<typeof selectAlunoPara>[0], hoje
     lerLimiarFaltas(),
   ]);
 
-  const contados = ["TURMA", "ESCALA", "FICHA", "FICHA_MAIORIDADE"] as const;
+  const contados = ["TURMA", "ESCALA", "CADASTRO", "FICHA", "FICHA_MAIORIDADE"] as const;
   const porCodigo: Record<(typeof contados)[number], number> = {
     TURMA: 0,
     ESCALA: 0,
+    CADASTRO: 0,
     FICHA: 0,
     FICHA_MAIORIDADE: 0,
   };
@@ -65,6 +66,7 @@ async function contarAlertas(papeis: Parameters<typeof selectAlunoPara>[0], hoje
     turma: porCodigo.TURMA,
     escala: porCodigo.ESCALA,
     // Null para quem não vê a coluna (professor): card de zero eterno não é card.
+    cadastro: podeVerDadosSensiveis(papeis) ? porCodigo.CADASTRO : null,
     ficha: podeVerDadosSensiveis(papeis) ? porCodigo.FICHA : null,
     fichaRefazer: podeVerDadosSensiveis(papeis) ? porCodigo.FICHA_MAIORIDADE : null,
   };
@@ -174,6 +176,15 @@ export default async function PainelPage() {
             quantidade={alertas.escala}
             icone={Shirt}
           />
+          {alertas.cadastro !== null ? (
+            <CardAlerta
+              href="/alunos?aviso=CADASTRO"
+              titulo="Cadastro incompleto"
+              regra="RG, CPF ou telefone em branco; do menor, também escola, série ou responsável."
+              quantidade={alertas.cadastro}
+              icone={ClipboardList}
+            />
+          ) : null}
           {alertas.ficha !== null ? (
             <CardAlerta
               href="/alunos?aviso=FICHA"

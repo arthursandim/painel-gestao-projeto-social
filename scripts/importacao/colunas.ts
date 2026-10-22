@@ -82,8 +82,8 @@ export const COLUNAS: readonly Coluna[] = [
   { campo: "cep", cabecalho: "CEP", tipo: "texto", largura: 11, nota: "00000-000" },
 
   // ------------------------------------------------------------- contato
-  { campo: "telefoneResponsavel", cabecalho: "Telefone do responsável", tipo: "texto", largura: 17, nota: "Com DDD. É o telefone da ficha em papel." },
-  { campo: "telefoneAluno", cabecalho: "Telefone do aluno", tipo: "texto", largura: 17, nota: "Com DDD. Não está na ficha em papel." },
+  { campo: "telefoneResponsavel", cabecalho: "Telefone do responsável", tipo: "texto", largura: 17, nota: "Com DDD. É o telefone da ficha em papel. Do adulto, é o telefone de contato." },
+  { campo: "telefoneAluno", cabecalho: "Telefone do aluno", tipo: "texto", largura: 17, nota: "Com DDD. Não está na ficha em papel. Só do menor: o do adulto vai em Telefone do responsável." },
   { campo: "email", cabecalho: "E-mail", tipo: "texto", largura: 26, nota: "Não está na ficha em papel." },
 
   // ---------------------------------------------------------- documentos

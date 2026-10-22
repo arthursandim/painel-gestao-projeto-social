@@ -97,35 +97,6 @@ export default async function AlunoPage({
   const menor = idade < IDADE_MAIORIDADE;
   const responsavel = completo && menor ? responsavelDoAluno(completo) : null;
 
-  // Indicador de completude: o que falta, em vez de obrigatoriedade no
-  // formulário. É o desenho que o CLAUDE.md escolhe — cobrar depois, com o
-  // cadastro já feito, em vez de bloquear na hora e não ter cadastro nenhum.
-  //
-  // A lista muda aos 18: escola, série e responsável legal deixam de ser
-  // cobrados, porque o adulto responde por si e assina a própria ficha.
-  const pendencias = completo
-    ? (
-        [
-          [
-            menor ? "Telefone do responsável" : "Telefone de contato",
-            completo.telefoneResponsavel ?? completo.telefoneAluno,
-          ],
-          ["Endereço", completo.endereco],
-          ["RG", completo.rg],
-          ["CPF", completo.cpf],
-          ...(menor
-            ? ([
-                ["Escola", completo.escola],
-                ["Série", completo.serie],
-                ["Responsável legal", completo.responsavelTipo],
-              ] as const)
-            : []),
-        ] as const
-      )
-        .filter(([, valor]) => !valor)
-        .map(([rotulo]) => rotulo)
-    : [];
-
   return (
     <section className="space-y-6">
       <div className="flex flex-col space-y-1">
@@ -294,7 +265,9 @@ export default async function AlunoPage({
               rotulo={menor ? "Telefone do responsável" : "Telefone de contato"}
               valor={completo.telefoneResponsavel}
             />
-            <Dado rotulo="Telefone do aluno" valor={completo.telefoneAluno} />
+            {menor ? (
+              <Dado rotulo="Telefone do aluno" valor={completo.telefoneAluno} />
+            ) : null}
             <Dado rotulo="E-mail" valor={completo.email} />
           </Bloco>
 
@@ -350,29 +323,6 @@ export default async function AlunoPage({
             <Dado rotulo="Escola" valor={completo.escola} />
             <Dado rotulo="Série" valor={completo.serie} />
           </Bloco>
-
-          {pendencias.length > 0 ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">
-                  Completude do cadastro
-                </CardTitle>
-                <CardDescription>
-                  Nenhum destes campos é obrigatório para cadastrar. A lista
-                  existe para eles não ficarem esquecidos.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="flex flex-wrap gap-2">
-                  {pendencias.map((p) => (
-                    <li key={p}>
-                      <Badge variant="outline">{p}</Badge>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          ) : null}
 
           <Card>
             <CardHeader>

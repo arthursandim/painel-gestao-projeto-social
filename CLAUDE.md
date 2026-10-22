@@ -139,11 +139,23 @@ Entidades: `Usuario`, `Turma`, `Aluno`, `Presenca`, `Documento`, `ListaEspera`, 
 
 Documentos pessoais (RG, CPF, comprovante) ficam opcionais **de propósito**: em projeto social boa parte das crianças chega sem documento em mãos, e formulário rígido produz cadastro não feito ou dado inventado. No lugar da obrigatoriedade, há um **indicador de completude** e o aluno aparece no painel de pendências.
 
+**O que acusa pendência** (decidido em 2026-10-22): o cadastro é feito com qualquer um destes em branco, mas o aluno fica com o aviso "Cadastro incompleto", que lista o que falta, até o campo ser preenchido.
+
+| Quem | Cobrado |
+| --- | --- |
+| Todos | RG e CPF |
+| Menor de 18 | Escola, série, responsável legal e telefone do responsável |
+| Adulto | Telefone de contato |
+
+Endereço não é cobrado. Regra em `pendenciasDoCadastro` (`lib/avisosAluno.ts`); aviso `CADASTRO`, que substituiu os antigos `RESPONSAVEL` e `ESCOLA`. Card "Cadastro incompleto" no painel e filtro `?aviso=CADASTRO`, só para quem vê dados sensíveis. O professor não recebe esses campos, então não recebe a pendência.
+
 ### Campos
 
 Matrícula (automática) · nome · nascimento · turma · naturalidade · nome do pai · nome da mãe · endereço, número, bairro, cidade, estado, CEP · telefone do responsável · telefone do aluno · RG, órgão emissor, UF, data de emissão · CPF · escola e série · modalidade · graduação · data da graduação · peso · altura · sexo · e-mail · status.
 
 **Só no digital, não vão na ficha impressa:** sexo, e-mail, telefone do aluno.
+
+**Telefone do adulto** (decidido em 2026-10-22): um só, o "Telefone de contato", gravado em `telefoneResponsavel` — a coluna que a ficha imprime. O campo "Telefone do aluno" some do formulário e da tela do adulto, e a ação preserva o que estiver gravado nele (omitir preserva, como o responsável legal). Na mesma data, o telefone dos 28 adultos importados foi copiado de `telefoneAluno` para `telefoneResponsavel`, sem apagar a origem. O empréstimo do inventário usa o de contato, e o do aluno só quando o de contato está vazio.
 
 ### Validações
 
@@ -239,7 +251,7 @@ Faixas permanentes enquanto a situação persistir. **Informam, nunca agem, e n�
 - Aluno Kids que completou 12 anos → altere o campo Turma
 - Aluno que completou 16 anos com faixa kids → reposicionar na escala adulta
 - Aluno que completou 18 anos com ficha de menor vigente
-- Menor de idade sem responsável legal definido
+- Cadastro incompleto — RG, CPF, telefone; do menor, também escola, série e responsável legal (ver "Obrigatoriedade mínima")
 - Ficha assinada não entregue — ~~documento obrigatório faltando~~ (ver "Ficha assinada entregue", abaixo)
 - ~~Matrícula acima da capacidade, com o nome de quem autorizou~~ — **saiu dos avisos em 2026-10-04** (decisão do desenvolvedor): é fato da turma, não do aluno. A autorização vai para o histórico em `/config/historico` (ver "Lista de espera › Histórico de parâmetros"); as colunas `autorizacaoAcima*` continuam no `Aluno`, mas a tela dele não as mostra
 
@@ -452,7 +464,7 @@ Tomadas pelo desenvolvedor em 2026-10-04:
 | Saída sem conversão (`REMOVIDO`) | `ADMIN` e `INSCRICOES`, **motivo obrigatório**; grava quem, quando e por quê. Nada é apagado: abas Convertidos e Removidos |
 | Dados divergentes na conversão | **A espera guarda o original.** O aluno é a fonte da verdade dali em diante; a espera aponta para ele |
 
-Na conversão, o registro da fila é ocupado (`UPDATE` condicional ao status) **na mesma transação** que cria o aluno: dois cliques não criam dois alunos, e se o aluno falhar o registro volta a aguardar. A turma cheia passa pela mesma `resolverCapacidade` do cadastro — `INSCRICOES` é barrado no servidor. O telefone da fila vai para o campo do responsável (menor) ou do aluno (adulto).
+Na conversão, o registro da fila é ocupado (`UPDATE` condicional ao status) **na mesma transação** que cria o aluno: dois cliques não criam dois alunos, e se o aluno falhar o registro volta a aguardar. A turma cheia passa pela mesma `resolverCapacidade` do cadastro — `INSCRICOES` é barrado no servidor. O telefone da fila vai para `telefoneResponsavel`: do responsável no menor, o de contato no adulto (desde 2026-10-22).
 
 ---
 

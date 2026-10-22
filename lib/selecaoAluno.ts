@@ -236,7 +236,7 @@ export type AlunoEmprestimo = {
   turma: string;
   ativo: boolean;
   menor: boolean;
-  /** Quem atende a cobrança. No adulto, só o telefone do próprio aluno. */
+  /** Quem atende a cobrança. No adulto, o telefone de contato dele. */
   contato: { nome: string | null; parentesco: string | null; telefone: string | null };
 };
 
@@ -267,6 +267,8 @@ export function alunoParaEmprestimo(aluno: RegistroEmprestimo, hojeIso: string):
           parentesco: responsavel?.parentesco ?? null,
           telefone: aluno.telefoneResponsavel,
         }
-      : { nome: null, parentesco: null, telefone: aluno.telefoneAluno },
+      : // Adulto: o telefone de contato. O do aluno só para quem foi
+        // cadastrado antes de o campo sumir da tela do adulto.
+        { nome: null, parentesco: null, telefone: aluno.telefoneResponsavel ?? aluno.telefoneAluno },
   };
 }

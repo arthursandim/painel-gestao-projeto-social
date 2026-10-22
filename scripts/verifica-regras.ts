@@ -12,7 +12,7 @@
  */
 import { Graduacao, ResponsavelTipo } from "@prisma/client";
 
-import { avisosDoAluno } from "../lib/avisosAluno";
+import { avisosDoAluno, pendenciasDoCadastro } from "../lib/avisosAluno";
 import { interpretarRespostaViaCep, mascaraCep } from "../lib/cep";
 import {
   emRiscoDeEvasao,
@@ -341,136 +341,89 @@ checa(
 );
 
 // =====================================================================
-console.log("\nOutros avisos do cadastro");
+console.log("\nCadastro incompleto — o que acusa pendência");
 
+// Decisão de 2026-10-22: RG e CPF de todos; do menor, escola, série,
+// responsável legal e telefone do responsável; do adulto, telefone de contato
+// (a mesma coluna telefoneResponsavel, que a ficha imprime).
+const MENOR_COMPLETO = {
+  nascimento: "2014-09-20",
+  graduacao: Graduacao.KIDS_CINZA,
+  turma: KIDS,
+  rg: "1234567",
+  cpf: "529.982.247-25",
+  telefoneResponsavel: "(48) 99123-4567",
+  telefoneAluno: null,
+  responsavelTipo: ResponsavelTipo.MAE,
+  escola: "Escola Municipal X",
+  serie: "6º ano",
+};
+const ADULTO_COMPLETO = {
+  ...MENOR_COMPLETO,
+  nascimento: "2000-01-01",
+  graduacao: Graduacao.ADULTO_AZUL,
+  turma: JOVENS,
+  telefoneResponsavel: "(48) 99123-4567",
+  telefoneAluno: null,
+  responsavelTipo: null,
+  escola: null,
+  serie: null,
+};
+const HOJE_CAD = "2026-09-19";
+const faltas = (a: Parameters<typeof pendenciasDoCadastro>[0]) => pendenciasDoCadastro(a, HOJE_CAD);
+
+checa("menor completo: nada pendente", faltas(MENOR_COMPLETO).length === 0);
+checa("menor completo: nenhum aviso de cadastro", !avisosDoAluno(MENOR_COMPLETO, HOJE_CAD).some((a) => a.codigo === "CADASTRO"));
+checa("adulto completo sem escola nem responsável: nada pendente", faltas(ADULTO_COMPLETO).length === 0);
+for (const [campo, rotulo] of [
+  ["rg", "RG"],
+  ["cpf", "CPF"],
+  ["telefoneResponsavel", "telefone do responsável"],
+  ["responsavelTipo", "responsável legal"],
+  ["escola", "escola"],
+  ["serie", "série"],
+] as const) {
+  checa(`menor sem ${rotulo}: pendente`, faltas({ ...MENOR_COMPLETO, [campo]: null }).includes(rotulo));
+}
+checa("campo só com espaços conta como vazio", faltas({ ...MENOR_COMPLETO, rg: "  " }).includes("RG"));
+checa("adulto sem RG: pendente", faltas({ ...ADULTO_COMPLETO, rg: null }).includes("RG"));
+checa("adulto sem CPF: pendente", faltas({ ...ADULTO_COMPLETO, cpf: null }).includes("CPF"));
+checa("adulto sem telefone de contato: pendente", faltas({ ...ADULTO_COMPLETO, telefoneResponsavel: null }).includes("telefone de contato"));
 checa(
-  "menor sem responsável legal avisa",
-  avisosDoAluno(
-    {
-      nascimento: "2014-09-20",
-      graduacao: Graduacao.KIDS_CINZA,
-      turma: KIDS,
-      responsavelTipo: null,
-    },
-    "2026-09-19",
-  ).some((a) => a.codigo === "RESPONSAVEL"),
+  "adulto: o telefone do aluno, campo oculto, não resolve",
+  faltas({ ...ADULTO_COMPLETO, telefoneResponsavel: null, telefoneAluno: "(48) 99123-4567" }).includes("telefone de contato"),
 );
 checa(
-  "visão sem o campo de responsável não inventa o aviso",
-  !avisosDoAluno(
-    { nascimento: "2014-09-20", graduacao: Graduacao.KIDS_CINZA, turma: KIDS },
-    "2026-09-19",
-  ).some((a) => a.codigo === "RESPONSAVEL"),
+  "menor: o telefone do aluno não substitui o do responsável",
+  faltas({ ...MENOR_COMPLETO, telefoneResponsavel: null, telefoneAluno: "(48) 99123-4567" }).includes("telefone do responsável"),
 );
 checa(
-  "maior de idade não cobra responsável legal",
-  !avisosDoAluno(
-    {
-      nascimento: "2000-01-01",
-      graduacao: Graduacao.ADULTO_AZUL,
-      turma: JOVENS,
-      responsavelTipo: null,
-    },
-    "2026-09-19",
-  ).some((a) => a.codigo === "RESPONSAVEL"),
-);
-checa(
-  "menor sem escola vira pendência",
-  avisosDoAluno(
-    {
-      nascimento: "2014-09-20",
-      graduacao: Graduacao.KIDS_CINZA,
-      turma: KIDS,
-      responsavelTipo: ResponsavelTipo.MAE,
-      escola: null,
-      serie: null,
-    },
-    "2026-09-19",
-  ).some((a) => a.codigo === "ESCOLA"),
-);
-checa(
-  "menor com escola mas sem série também vira pendência",
-  avisosDoAluno(
-    {
-      nascimento: "2014-09-20",
-      graduacao: Graduacao.KIDS_CINZA,
-      turma: KIDS,
-      responsavelTipo: ResponsavelTipo.MAE,
-      escola: "Escola Municipal X",
-      serie: null,
-    },
-    "2026-09-19",
-  ).some((a) => a.codigo === "ESCOLA"),
-);
-checa(
-  "menor com escola e série não gera pendência",
-  !avisosDoAluno(
-    {
-      nascimento: "2014-09-20",
-      graduacao: Graduacao.KIDS_CINZA,
-      turma: KIDS,
-      responsavelTipo: ResponsavelTipo.MAE,
-      escola: "Escola Municipal X",
-      serie: "6º ano",
-    },
-    "2026-09-19",
-  ).some((a) => a.codigo === "ESCOLA"),
+  "o aviso lista o que falta",
+  avisosDoAluno({ ...MENOR_COMPLETO, rg: null, escola: null }, HOJE_CAD).find((a) => a.codigo === "CADASTRO")?.texto.includes("RG e escola") === true,
 );
 
-// O corte dos 18: nada de escola nem de responsável é cobrado do adulto.
+// O corte dos 18: escola, série e responsável deixam de ser cobrados no dia.
+const vespera = { ...MENOR_COMPLETO, nascimento: "2008-09-20", escola: null, responsavelTipo: null };
+checa("17a11m29d ainda é cobrado de escola", faltas(vespera).includes("escola"));
+checa("17a11m29d ainda é cobrado de responsável", faltas(vespera).includes("responsável legal"));
+const noDia = { ...vespera, nascimento: "2008-09-19" };
+checa("no dia dos 18, escola não é mais cobrada", !faltas(noDia).includes("escola"));
+checa(
+  "no dia dos 18, o telefone já preenchido continua valendo como contato",
+  !faltas(noDia).some((f) => f.startsWith("telefone")),
+);
+
+// A visão do professor não traz nenhum destes campos: pendência inventada a
+// partir de um campo que a consulta nem leu seria mentira.
 const adultoSemNada = avisosDoAluno(
-  {
-    nascimento: "2000-01-01",
-    graduacao: Graduacao.ADULTO_AZUL,
-    turma: JOVENS,
-    responsavelTipo: null,
-    escola: null,
-    serie: null,
-  },
-  "2026-09-19",
-);
-checa("adulto sem escola não é cobrado", !adultoSemNada.some((a) => a.codigo === "ESCOLA"));
-checa(
-  "adulto sem responsável não é cobrado",
-  !adultoSemNada.some((a) => a.codigo === "RESPONSAVEL"),
-);
-checa("adulto em dia não gera aviso nenhum", adultoSemNada.length === 0);
-
-// Véspera dos 18: um dia antes, as duas cobranças ainda valem.
-const vesperaDos18 = avisosDoAluno(
-  {
-    nascimento: "2008-09-20",
-    graduacao: Graduacao.ADULTO_AZUL,
-    turma: JOVENS,
-    responsavelTipo: null,
-    escola: null,
-    serie: null,
-  },
-  "2026-09-19",
+  { nascimento: "2000-01-01", graduacao: Graduacao.ADULTO_AZUL, turma: JOVENS },
+  HOJE_CAD,
 );
 checa(
-  "17a11m29d ainda é cobrado de escola",
-  vesperaDos18.some((a) => a.codigo === "ESCOLA"),
+  "visão sem os campos não inventa pendência",
+  pendenciasDoCadastro({ nascimento: "2014-09-20", graduacao: Graduacao.KIDS_CINZA, turma: KIDS }, HOJE_CAD).length === 0,
 );
-checa(
-  "17a11m29d ainda é cobrado de responsável",
-  vesperaDos18.some((a) => a.codigo === "RESPONSAVEL"),
-);
-
-// A visão reduzida do professor não traz escola: a pendência não pode ser
-// inventada a partir de um campo que a consulta nem leu.
-checa(
-  "visão sem escola não inventa a pendência",
-  !avisosDoAluno(
-    {
-      nascimento: "2014-09-20",
-      graduacao: Graduacao.KIDS_CINZA,
-      turma: KIDS,
-      responsavelTipo: ResponsavelTipo.MAE,
-    },
-    "2026-09-19",
-  ).some((a) => a.codigo === "ESCOLA"),
-);
+checa("adulto na visão reduzida não gera aviso nenhum", adultoSemNada.length === 0);
 
 // Ficha assinada (decisão de 2026-10-22): a marcação guarda a variante, e o
 // aviso compara com a variante de hoje — o mesmo corte dos 18 da ficha.
