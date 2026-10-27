@@ -434,7 +434,9 @@ Parâmetros editáveis em tela, só por admin:
 - Capacidade de cada turma
 - N de faltas consecutivas que dispara o alerta (**default 3**)
 
-A conversão **não é bloqueada** com a turma cheia, mas **exige autorização explícita de um admin**. O sistema registra quem autorizou, quando e a justificativa. A turma passa a mostrar ocupação acima do limite (41/40), deixando a exceção visível. O papel `INSCRICOES` sozinho não consegue estourar a turma.
+A conversão **não é bloqueada** com a turma cheia, mas **exige autorização explícita, com justificativa**, de quem cadastra aluno (`ADMIN` ou `INSCRICOES`). O sistema registra quem autorizou, quando e a justificativa. A turma passa a mostrar ocupação acima do limite (41/40), deixando a exceção visível.
+
+Até 2026-10-26 só o admin autorizava. Em 2026-10-27, o desenvolvedor estendeu a autorização a `INSCRICOES`, quem faz a matrícula no dia a dia. A justificativa e o evento no histórico continuam obrigatórios para os dois.
 
 Faixas da tela `/config/parametros` (decididas na fase 7): N de faltas de **1 a 10**; capacidade de 1 a 200. Capacidade **abaixo da ocupação atual é permitida**, com aviso antes de salvar — ninguém é desligado, a turma só passa a aparecer acima do limite. Só o valor que mudou é gravado, com autor e timestamp (`Turma.atualizadoPorId`, `Configuracao.atualizadoPorId`).
 
@@ -464,7 +466,7 @@ Tomadas pelo desenvolvedor em 2026-10-04:
 | Saída sem conversão (`REMOVIDO`) | `ADMIN` e `INSCRICOES`, **motivo obrigatório**; grava quem, quando e por quê. Nada é apagado: abas Convertidos e Removidos |
 | Dados divergentes na conversão | **A espera guarda o original.** O aluno é a fonte da verdade dali em diante; a espera aponta para ele |
 
-Na conversão, o registro da fila é ocupado (`UPDATE` condicional ao status) **na mesma transação** que cria o aluno: dois cliques não criam dois alunos, e se o aluno falhar o registro volta a aguardar. A turma cheia passa pela mesma `resolverCapacidade` do cadastro — `INSCRICOES` é barrado no servidor. O telefone da fila vai para `telefoneResponsavel`: do responsável no menor, o de contato no adulto (desde 2026-10-22).
+Na conversão, o registro da fila é ocupado (`UPDATE` condicional ao status) **na mesma transação** que cria o aluno: dois cliques não criam dois alunos, e se o aluno falhar o registro volta a aguardar. A turma cheia passa pela mesma `resolverCapacidade` do cadastro, que exige a justificativa no servidor. O telefone da fila vai para `telefoneResponsavel`: do responsável no menor, o de contato no adulto (desde 2026-10-22).
 
 ---
 
@@ -819,7 +821,7 @@ O risco não é o app não funcionar. É funcionar **errado de um jeito que pass
 - **Download só para admin.** Logado como `INSCRICOES`, pedir à API a URL de download de um documento → recusado. A de visualização vem.
 - **Corte da turma.** 11 anos, 11 meses e 29 dias → ainda apto a Kids; no dia seguinte, aviso.
 - **Corte da escala.** 14 anos em Jovens/Adultos oferece faixas kids **sem aviso nenhum** (é normal). No ano em que faz 16, ainda com 15, as duas escalas e nenhum alerta. Aos 16, alerta e escala adulta.
-- **Turma cheia.** `INSCRICOES` é barrado; admin autoriza e a matrícula grava com o registro da autorização.
+- **Turma cheia.** Sem justificativa, `INSCRICOES` e admin são barrados; com ela, a matrícula grava com o registro da autorização e o evento no histórico. Professor não chega à ação.
 - **Empréstimo duplicado.** Emprestar unidade única que já está na rua. **O banco não barra** — regra de aplicação da fase 8.
 - **Saída maior que o saldo.** Dar baixa de 5 num item que tem 3. **O banco não barra** — regra de aplicação da fase 8. O *check constraint* garante quantidade positiva, não saldo suficiente.
 - **Saldo de estoque.** Quantidade atual sempre bate com a soma dos movimentos — verdadeiro por construção, já que não existe coluna de quantidade. O que precisa mesmo de teste é o empréstimo não mexer no total.

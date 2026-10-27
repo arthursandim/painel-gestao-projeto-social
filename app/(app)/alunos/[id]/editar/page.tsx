@@ -8,7 +8,7 @@ import { VALORES_VAZIOS, type ValoresAluno } from "@/lib/esquemaAluno";
 import { BotaoVoltar } from "@/components/botao-voltar";
 import { exigirPapeis } from "@/lib/auth";
 import { dataParaDia, hojeNoProjeto } from "@/lib/data";
-import { ehAdmin, PAPEIS_ESCRITA_ALUNO } from "@/lib/permissoes";
+import { PAPEIS_ESCRITA_ALUNO, podeEscreverAluno } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
 import { ehAlunoCompleto, selectAlunoPara } from "@/lib/selecaoAluno";
 
@@ -111,7 +111,7 @@ export default async function EditarAlunoPage({
         }))}
         valores={valores}
         hojeIso={hojeNoProjeto()}
-        podeAutorizarCapacidade={ehAdmin(usuario.papeis)}
+        podeAutorizarCapacidade={podeEscreverAluno(usuario.papeis)}
         fichaGravada={aluno.fichaEntregueVariante}
         hrefCancelar={`/alunos/${aluno.id}`}
         rotuloSalvar="Salvar alterações"

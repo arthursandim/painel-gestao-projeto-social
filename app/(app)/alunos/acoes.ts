@@ -24,7 +24,7 @@ import {
 import { caminhoFotoAluno } from "@/lib/fotos";
 import { eventoMatriculaAcima } from "@/lib/historico";
 import { campoDuplicado, proximaMatricula } from "@/lib/matricula";
-import { ehAdmin, PAPEIS_ESCRITA_ALUNO } from "@/lib/permissoes";
+import { PAPEIS_ESCRITA_ALUNO, podeEscreverAluno } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
 import { selectAlunoPara } from "@/lib/selecaoAluno";
 import { gravarFoto, lerFotoDoForm, lerFotoOpcional } from "@/lib/storageFotos";
@@ -167,8 +167,8 @@ const SEM_AUTORIZACAO: Autorizacao = {
 
 /**
  * A regra da turma cheia: a matrícula não é bloqueada, mas exige autorização
- * explícita de um admin, com justificativa gravada. INSCRICOES sozinho não
- * consegue estourar a turma.
+ * explícita, com justificativa gravada. Desde 2026-10-27 quem cadastra aluno
+ * (ADMIN e INSCRICOES) autoriza; antes era só o admin.
  */
 function resolverCapacidade(
   medida: Ocupacao,
@@ -180,16 +180,16 @@ function resolverCapacidade(
 
   const cheia = `A turma ${medida.turma.nome} está com ${medida.ocupacao} de ${medida.turma.capacidade} vagas ocupadas.`;
 
-  if (!ehAdmin(papeis)) {
+  if (!podeEscreverAluno(papeis)) {
     return {
-      erro: `${cheia} Só um administrador pode autorizar matrícula acima da capacidade — peça a autorização ou escolha outra turma.`,
+      erro: `${cheia} Seu perfil não pode autorizar matrícula acima da capacidade.`,
     };
   }
 
   const justificativa = String(form.get("justificativaCapacidade") ?? "").trim();
   if (!justificativa) {
     return {
-      exigeAutorizacao: `${cheia} Como administrador você pode autorizar assim mesmo, mas a justificativa fica gravada no cadastro.`,
+      exigeAutorizacao: `${cheia} Você pode autorizar assim mesmo, mas a justificativa fica gravada no histórico.`,
     };
   }
 

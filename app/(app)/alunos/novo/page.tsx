@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { exigirPapeis } from "@/lib/auth";
 import { IDADE_MAIORIDADE } from "@/lib/avisosAluno";
 import { dataParaDia, formatarDiaBr, hojeNoProjeto, idadeEm } from "@/lib/data";
-import { ehAdmin, PAPEIS_ESCRITA_ALUNO } from "@/lib/permissoes";
+import { PAPEIS_ESCRITA_ALUNO, podeEscreverAluno } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = { title: "Novo aluno — Engenho Cidadão" };
@@ -137,7 +137,7 @@ export default async function NovoAlunoPage({ searchParams }: PageProps<"/alunos
         valores={valores}
         esperaId={convertendo?.id}
         hojeIso={hoje}
-        podeAutorizarCapacidade={ehAdmin(usuario.papeis)}
+        podeAutorizarCapacidade={podeEscreverAluno(usuario.papeis)}
         hrefCancelar={voltarPara}
         rotuloSalvar={convertendo ? "Cadastrar e tirar da fila" : "Cadastrar aluno"}
       />
