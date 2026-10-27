@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
-import { useFormStatus } from "react-dom";
+import { useState } from "react";
 
 import {
   alternarAtivo,
@@ -16,6 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useEnvioSemLimpar } from "@/lib/useEnvioSemLimpar";
 
 function Recado({ estado }: { estado: EstadoForm }) {
   if (estado.erro) {
@@ -38,29 +38,34 @@ function Recado({ estado }: { estado: EstadoForm }) {
 function Enviar({
   children,
   variant,
+  pendente,
 }: {
   children: React.ReactNode;
   variant?: "outline" | "destructive" | "secondary";
+  pendente: boolean;
 }) {
-  const { pending } = useFormStatus();
   return (
     <Button
       type="submit"
       size="sm"
       variant={variant}
-      disabled={pending}
+      disabled={pendente}
       className="min-h-11 md:min-h-9"
     >
-      {pending ? "Salvando…" : children}
+      {pendente ? "Salvando…" : children}
     </Button>
   );
 }
 
 export function FormNovoUsuario({ campos }: { campos: React.ReactNode }) {
-  const [estado, acao] = useActionState<EstadoForm, FormData>(criarUsuario, {});
+  const { estado, aoEnviar, pendente } = useEnvioSemLimpar<EstadoForm>(
+    criarUsuario,
+    {},
+    (e) => Boolean(e.ok),
+  );
 
   return (
-    <form action={acao} className="space-y-4">
+    <form onSubmit={aoEnviar} className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="nome">Nome</Label>
@@ -100,7 +105,7 @@ export function FormNovoUsuario({ campos }: { campos: React.ReactNode }) {
       <Recado estado={estado} />
 
       <div className="flex flex-wrap items-center gap-2">
-        <Enviar>Criar usuário</Enviar>
+        <Enviar pendente={pendente}>Criar usuário</Enviar>
         <Button asChild variant="ghost" size="sm" className="min-h-11 md:min-h-9">
           <Link href="/config">Cancelar</Link>
         </Button>
@@ -116,17 +121,14 @@ export function FormPapeis({
   usuarioId: string;
   campos: React.ReactNode;
 }) {
-  const [estado, acao] = useActionState<EstadoForm, FormData>(
-    atualizarPapeis,
-    {},
-  );
+  const { estado, aoEnviar, pendente } = useEnvioSemLimpar<EstadoForm>(atualizarPapeis, {});
 
   return (
-    <form action={acao} className="space-y-3">
+    <form onSubmit={aoEnviar} className="space-y-3">
       <input type="hidden" name="usuarioId" value={usuarioId} />
       {campos}
       <Recado estado={estado} />
-      <Enviar variant="outline">Salvar papéis</Enviar>
+      <Enviar pendente={pendente} variant="outline">Salvar papéis</Enviar>
     </form>
   );
 }
@@ -138,16 +140,13 @@ export function FormAtivo({
   usuarioId: string;
   ativo: boolean;
 }) {
-  const [estado, acao] = useActionState<EstadoForm, FormData>(
-    alternarAtivo,
-    {},
-  );
+  const { estado, aoEnviar, pendente } = useEnvioSemLimpar<EstadoForm>(alternarAtivo, {});
 
   return (
-    <form action={acao} className="space-y-3">
+    <form onSubmit={aoEnviar} className="space-y-3">
       <input type="hidden" name="usuarioId" value={usuarioId} />
       <Recado estado={estado} />
-      <Enviar variant={ativo ? "destructive" : "secondary"}>
+      <Enviar pendente={pendente} variant={ativo ? "destructive" : "secondary"}>
         {ativo ? "Desativar acesso" : "Reativar acesso"}
       </Enviar>
     </form>
@@ -155,13 +154,14 @@ export function FormAtivo({
 }
 
 export function FormSenha({ usuarioId }: { usuarioId: string }) {
-  const [estado, acao] = useActionState<EstadoForm, FormData>(
+  const { estado, aoEnviar, pendente } = useEnvioSemLimpar<EstadoForm>(
     redefinirSenha,
     {},
+    (e) => Boolean(e.ok),
   );
 
   return (
-    <form action={acao} className="space-y-3">
+    <form onSubmit={aoEnviar} className="space-y-3">
       <input type="hidden" name="usuarioId" value={usuarioId} />
       <div className="space-y-2">
         <Label htmlFor={`senha-${usuarioId}`}>Nova senha</Label>
@@ -175,7 +175,7 @@ export function FormSenha({ usuarioId }: { usuarioId: string }) {
         />
       </div>
       <Recado estado={estado} />
-      <Enviar variant="outline">Redefinir senha</Enviar>
+      <Enviar pendente={pendente} variant="outline">Redefinir senha</Enviar>
     </form>
   );
 }
@@ -194,7 +194,7 @@ export function FormExcluir({
   /** Por que não pode ser excluído; null quando pode. */
   impedimento: string | null;
 }) {
-  const [estado, acao] = useActionState<EstadoForm, FormData>(excluirUsuario, {});
+  const { estado, aoEnviar, pendente } = useEnvioSemLimpar<EstadoForm>(excluirUsuario, {});
   const [aberto, setAberto] = useState(false);
 
   if (impedimento) {
@@ -219,7 +219,7 @@ export function FormExcluir({
   }
 
   return (
-    <form action={acao} className="space-y-3">
+    <form onSubmit={aoEnviar} className="space-y-3">
       <input type="hidden" name="usuarioId" value={usuarioId} />
       <p className="text-sm">
         {nome} nunca registrou nada no app. A conta e o login no Supabase saem
@@ -227,7 +227,7 @@ export function FormExcluir({
       </p>
       <Recado estado={estado} />
       <div className="flex flex-wrap gap-2">
-        <Enviar variant="destructive">Confirmar exclusão</Enviar>
+        <Enviar pendente={pendente} variant="destructive">Confirmar exclusão</Enviar>
         <Button
           type="button"
           size="sm"

@@ -3,13 +3,12 @@
 import { Graduacao, Modalidade, ResponsavelTipo, Sexo, type VarianteFicha } from "@prisma/client";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
-import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
 
 import type { EstadoAluno } from "./acoes";
 import { CampoFoto } from "@/components/campo-foto";
 import { avisosDoAluno, IDADE_MAIORIDADE } from "@/lib/avisosAluno";
 import { consultarCep, mascaraCep, RECADO_FALHA } from "@/lib/cep";
+import { useEnvioSemLimpar } from "@/lib/useEnvioSemLimpar";
 import { ehDiaValido, idadeEm } from "@/lib/data";
 import { OPCOES_UF, type ValoresAluno } from "@/lib/esquemaAluno";
 import { ROTULO_TIPO_SANGUINEO, TIPOS_SANGUINEOS } from "@/lib/saude";
@@ -93,11 +92,10 @@ function Campo({
   );
 }
 
-function Enviar({ children }: { children: React.ReactNode }) {
-  const { pending } = useFormStatus();
+function Enviar({ children, pendente }: { children: React.ReactNode; pendente: boolean }) {
   return (
-    <Button type="submit" disabled={pending} className="min-h-11">
-      {pending ? "Salvando…" : children}
+    <Button type="submit" disabled={pendente} className="min-h-11">
+      {pendente ? "Salvando…" : children}
     </Button>
   );
 }
@@ -138,7 +136,7 @@ export function FormularioAluno({
     fotoAtual.current = nova;
     setFoto(nova);
   }
-  const [estado, enviar] = useActionState<EstadoAluno, FormData>((anterior, form) => {
+  const { estado, aoEnviar, pendente } = useEnvioSemLimpar<EstadoAluno>((anterior, form) => {
     if (fotoAtual.current) {
       form.set("foto", new File([fotoAtual.current], "foto.jpg", { type: "image/jpeg" }));
     }
@@ -361,7 +359,7 @@ export function FormularioAluno({
       : [];
 
   return (
-    <form action={enviar} className="space-y-6">
+    <form onSubmit={aoEnviar} className="space-y-6">
       {alunoId ? <input type="hidden" name="id" value={alunoId} /> : null}
       {esperaId ? <input type="hidden" name="esperaId" value={esperaId} /> : null}
 
@@ -1097,7 +1095,7 @@ export function FormularioAluno({
       ) : null}
 
       <div className="bg-background/95 sticky bottom-0 flex flex-wrap items-center gap-2 border-t py-3 backdrop-blur">
-        <Enviar>
+        <Enviar pendente={pendente}>
           {estado.duplicidade ? "Cadastrar assim mesmo" : rotuloSalvar}
         </Enviar>
         <Button asChild variant="ghost" className="min-h-11">

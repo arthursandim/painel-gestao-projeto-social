@@ -1,19 +1,17 @@
 "use client";
 
-import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
-
 import { entrar, type EstadoLogin } from "./acoes";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useEnvioSemLimpar } from "@/lib/useEnvioSemLimpar";
 
 export function FormularioLogin({ proximo }: { proximo: string }) {
-  const [estado, acao] = useActionState<EstadoLogin, FormData>(entrar, {});
+  const { estado, aoEnviar, pendente } = useEnvioSemLimpar<EstadoLogin>(entrar, {});
 
   return (
-    <form action={acao} className="space-y-4">
+    <form onSubmit={aoEnviar} className="space-y-4">
       <input type="hidden" name="proximo" value={proximo} />
 
       <div className="space-y-2">
@@ -48,16 +46,15 @@ export function FormularioLogin({ proximo }: { proximo: string }) {
         </Alert>
       ) : null}
 
-      <Botao />
+      <Botao pendente={pendente} />
     </form>
   );
 }
 
-function Botao() {
-  const { pending } = useFormStatus();
+function Botao({ pendente }: { pendente: boolean }) {
   return (
-    <Button type="submit" className="h-11 w-full" disabled={pending}>
-      {pending ? "Entrando…" : "Entrar"}
+    <Button type="submit" className="h-11 w-full" disabled={pendente}>
+      {pendente ? "Entrando…" : "Entrar"}
     </Button>
   );
 }

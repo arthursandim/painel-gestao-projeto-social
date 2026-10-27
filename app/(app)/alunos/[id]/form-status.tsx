@@ -1,24 +1,23 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { useFormStatus } from "react-dom";
+import { useState } from "react";
 
 import { alternarStatusAluno, type EstadoAluno } from "../acoes";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useEnvioSemLimpar } from "@/lib/useEnvioSemLimpar";
 
-function Confirmar({ children }: { children: React.ReactNode }) {
-  const { pending } = useFormStatus();
+function Confirmar({ children, pendente }: { children: React.ReactNode; pendente: boolean }) {
   return (
     <Button
       type="submit"
       variant="destructive"
-      disabled={pending}
+      disabled={pendente}
       className="min-h-11"
     >
-      {pending ? "Gravando…" : children}
+      {pendente ? "Gravando…" : children}
     </Button>
   );
 }
@@ -39,7 +38,7 @@ export function FormStatusAluno({
   ativo: boolean;
   nome: string;
 }) {
-  const [estado, acao] = useActionState<EstadoAluno, FormData>(
+  const { estado, aoEnviar, pendente } = useEnvioSemLimpar<EstadoAluno>(
     alternarStatusAluno,
     {},
   );
@@ -65,7 +64,7 @@ export function FormStatusAluno({
   }
 
   return (
-    <form action={acao} className="space-y-3">
+    <form onSubmit={aoEnviar} className="space-y-3">
       <input type="hidden" name="id" value={alunoId} />
 
       {ativo ? (
@@ -114,7 +113,7 @@ export function FormStatusAluno({
       ) : null}
 
       <div className="flex flex-wrap gap-2">
-        <Confirmar>{ativo ? "Confirmar desligamento" : "Confirmar reativação"}</Confirmar>
+        <Confirmar pendente={pendente}>{ativo ? "Confirmar desligamento" : "Confirmar reativação"}</Confirmar>
         <Button
           type="button"
           variant="ghost"
