@@ -189,7 +189,7 @@ function resolverCapacidade(
   const justificativa = String(form.get("justificativaCapacidade") ?? "").trim();
   if (!justificativa) {
     return {
-      exigeAutorizacao: `${cheia} Você pode autorizar assim mesmo, mas a justificativa fica gravada no histórico.`,
+      exigeAutorizacao: `${cheia} Para matricular assim mesmo, escreva o motivo no campo "Justificativa da autorização" e salve de novo. Sem justificativa a matrícula não é gravada; com ela, fica no histórico quem autorizou e por quê.`,
     };
   }
 

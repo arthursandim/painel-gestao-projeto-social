@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+import { LimparAoRecarregar } from "@/components/limpar-ao-recarregar";
 import { RegistroSw } from "@/components/registro-sw";
 
 const geistSans = Geist({
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         {children}
         <RegistroSw />
+        <LimparAoRecarregar />
       </body>
     </html>
   );

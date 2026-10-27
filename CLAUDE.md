@@ -597,6 +597,10 @@ O destino é escrito na chamada, nunca `history.back()`: quem chega por URL digi
 
 Componente: `components/botao-voltar.tsx`.
 
+**F5 volta a tela ao estado inicial** (decidido em 2026-10-27). Formulário volta ao que o servidor renderizou: vazio no cadastro, os dados salvos na edição. Nas listas, busca, filtros e ordem saem da URL — inclusive o filtro de quem chegou por um card do painel. Só nas telas de lista, por caminho exato; `?espera=` da conversão e `?proximo=` do login são contexto e ficam. Navegar por link continua levando os filtros. Componente: `components/limpar-ao-recarregar.tsx`, no layout raiz.
+
+**Erro no envio não apaga o digitado.** O React 19 limpa os campos de um `<form action>` quando a ação termina, mesmo com erro: os formulários usam campos controlados ou `lib/useEnvioSemLimpar.ts`.
+
 ---
 
 ## Responsividade
