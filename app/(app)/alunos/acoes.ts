@@ -30,13 +30,28 @@ import { selectAlunoPara } from "@/lib/selecaoAluno";
 import { gravarFoto, lerFotoDoForm, lerFotoOpcional } from "@/lib/storageFotos";
 import { chaveDeNome } from "@/lib/validacoes";
 
+const PREENCHA_JUSTIFICATIVA =
+  'Preencha o campo "Justificativa da autorização" para matricular em turma que está acima da capacidade.';
+
 export type EstadoAluno = {
   erro?: string;
   ok?: string;
   /** Aviso de possível duplicidade. Não impede — pede uma confirmação. */
   duplicidade?: { mensagem: string; nome: string };
-  /** Turma cheia e quem está salvando é admin: falta a justificativa. */
-  exigeAutorizacao?: string;
+  /**
+   * Turma cheia e falta a justificativa. Leva a ocupação contada no envio, que
+   * substitui a da abertura da página: entre as duas alguém pode ter entrado
+   * ou saído, e a tela mostraria dois números para a mesma turma.
+   */
+  exigeAutorizacao?: {
+    /** Com a ocupação, para quem não tem o quadro "Turma cheia" na tela. */
+    mensagem: string;
+    /** Só o pedido, para ir junto do campo. */
+    pedido: string;
+    turmaId: string;
+    ocupacao: number;
+    capacidade: number;
+  };
 };
 
 function primeiroErro(erro: z.ZodError): string {
@@ -189,7 +204,13 @@ function resolverCapacidade(
   const justificativa = String(form.get("justificativaCapacidade") ?? "").trim();
   if (!justificativa) {
     return {
-      exigeAutorizacao: `${cheia} Para matricular assim mesmo, escreva o motivo no campo "Justificativa da autorização" e salve de novo. Sem justificativa a matrícula não é gravada; com ela, fica no histórico quem autorizou e por quê.`,
+      exigeAutorizacao: {
+        mensagem: `${medida.turma.nome} está cheia (${medida.ocupacao}/${medida.turma.capacidade}). ${PREENCHA_JUSTIFICATIVA}`,
+        pedido: PREENCHA_JUSTIFICATIVA,
+        turmaId: medida.turma.id,
+        ocupacao: medida.ocupacao,
+        capacidade: medida.turma.capacidade,
+      },
     };
   }
 

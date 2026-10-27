@@ -323,8 +323,15 @@ export function FormularioAluno({
   // Aluno novo sempre ocupa uma vaga, mesmo com a turma vindo preenchida da
   // lista de espera; na edição, só a troca de turma ocupa vaga nova.
   const mudouDeTurma = !alunoId || turmaId !== valores.turmaId;
+  // A recusa do servidor traz a ocupação do momento do envio, que vence a da
+  // abertura da página: um número só para a turma, e o quadro aparece mesmo se
+  // a turma encheu depois de o formulário abrir.
+  const recusaCapacidade =
+    estado.exigeAutorizacao?.turmaId === turmaId ? estado.exigeAutorizacao : undefined;
+  const ocupacaoTurma = recusaCapacidade?.ocupacao ?? turma?.ocupacao;
+  const capacidadeTurma = recusaCapacidade?.capacidade ?? turma?.capacidade;
   const turmaLotada = Boolean(
-    turma && mudouDeTurma && turma.ocupacao >= turma.capacidade,
+    turma && mudouDeTurma && (recusaCapacidade || turma.ocupacao >= turma.capacidade),
   );
 
   const responsavelTipo: ResponsavelTipo | "" =
@@ -1045,8 +1052,8 @@ export function FormularioAluno({
           <AlertTitle>Turma cheia</AlertTitle>
           <AlertDescription className="space-y-3">
             <p>
-              {turma?.nome} está com {turma?.ocupacao} de {turma?.capacidade}{" "}
-              vagas ocupadas.
+              {turma?.nome} está com {ocupacaoTurma} de {capacidadeTurma} vagas
+              ocupadas.
             </p>
             {podeAutorizarCapacidade ? (
               <div className="w-full space-y-2">
@@ -1057,7 +1064,14 @@ export function FormularioAluno({
                   id="justificativaCapacidade"
                   name="justificativaCapacidade"
                   placeholder="Por que esta matrícula entra acima da capacidade?"
+                  aria-invalid={recusaCapacidade ? true : undefined}
+                  aria-describedby={recusaCapacidade ? "pedidoJustificativa" : undefined}
                 />
+                {recusaCapacidade ? (
+                  <p id="pedidoJustificativa" role="alert" className="text-destructive text-sm font-medium">
+                    {recusaCapacidade.pedido}
+                  </p>
+                ) : null}
                 <p className="text-xs">
                   Fica gravado quem autorizou, quando e por quê. A turma passa a
                   mostrar a ocupação acima do limite.
@@ -1065,17 +1079,11 @@ export function FormularioAluno({
               </div>
             ) : (
               <p>
-                Só um administrador pode autorizar matrícula acima da
-                capacidade. Escolha outra turma ou peça a autorização.
+                Seu perfil não autoriza matrícula acima da capacidade. Escolha
+                outra turma.
               </p>
             )}
           </AlertDescription>
-        </Alert>
-      ) : null}
-
-      {estado.exigeAutorizacao ? (
-        <Alert variant="destructive">
-          <AlertDescription>{estado.exigeAutorizacao}</AlertDescription>
         </Alert>
       ) : null}
 

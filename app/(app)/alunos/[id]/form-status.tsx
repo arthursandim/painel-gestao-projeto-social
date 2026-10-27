@@ -95,7 +95,7 @@ export function FormStatusAluno({
       ) : null}
       {estado.exigeAutorizacao ? (
         <Alert variant="destructive">
-          <AlertDescription>{estado.exigeAutorizacao}</AlertDescription>
+          <AlertDescription>{estado.exigeAutorizacao.mensagem}</AlertDescription>
         </Alert>
       ) : null}
 
